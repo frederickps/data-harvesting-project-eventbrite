@@ -5,42 +5,26 @@ library(httr2)
 library(tidyverse)
 library(rvest)
 library(xml2)
-
-## token key ----
-token_key <- "TCQQTBU3YTHBD5S7YLT7"
-
-url_example <- "https://www.eventbriteapi.com/v3/users/me/?token=TCQQTBU3YTHBD5S7YLT7"
+library(dotenv)
 
 ## user agent----
 
-set_config(
-  user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15")
-)
-
-## api me ----
-
-resp_me <- url_example %>% 
-  request() %>% 
-  req_perform() %>% 
-  resp_body_json(simplifyVector = TRUE)
-
-resp_me
-
-# api 
-## nevermind 
-
-
+ ## user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15")
 
 # webscraping ----
 
-# link <- "https://www.eventbrite.es/d/spain--madrid/all-events/"
-link <- "https://www.eventbrite.es/d/spain--madrid/events--today/?page=1"
+link0 <- "https://www.eventbrite.es/d/spain--madrid/events--today/"
+link1 <- "https://www.eventbrite.es/d/spain--madrid/events--today/?page=1"
+link2 <- "https://www.eventbrite.es/d/spain--madrid/events--today/?page=2"
 
-html_link <- link |> read_html()
 
+html_link1 <- link1 |> read_html()
+html_link2 <- link2 |> read_html()
+
+## direct xpath copy&paste ----
 direct <- "/html/body/div[2]/div/div[2]/div/div/div/div[1]/div/main/div/div[1]/section[1]/div/section/div/div/section/ul/li[1]/div/div[2]/section/div/section[2]/div/a"
 
-event_direct <-  html_link %>%
+event_direct <-  html_link2 %>%
   xml_find_all(direct)
 
 event_direct |> 
@@ -62,17 +46,55 @@ lubridate::as_datetime("7:00 PM", tz = "Europe/Madrid",
 
 ## more general method ----
 
-html_link |> 
+y <- html_link2 |> 
   xml_find_all("//section[@class='event-card-details']//div[@class='Stack_root__1ksk7']//h2") |> 
   xml_text()
 
+z = seq(1,40,by=2)
+y[z]
 
 
-todays_event_times <- html_link |> 
+todays_event_times <- html_link2 |> 
   xml_find_all("//section[@class='event-card-details']//div[@class='Stack_root__1ksk7']")
 todays_event_times |> 
   xml_text()
 
+# function for getting titles: ----
 
+get_event_titles <- function(link, page_num) {
+  
+  link_with_page_num <- paste0(link, "?page=", page_num)
+  
+  html_link <- link_with_page_num |> read_html()
+  
+  html_link <- html_link |> 
+    xml_find_all("//section[@class='event-card-details']//div[@class='Stack_root__1ksk7']//h2") |> 
+    xml_text()
+  
+  html_link[seq(from=1, to=40, by=2)]
+}
 
+## test it out
+
+good <- get_event_titles(link0, page_num = 4) # no NA's
+ok <-  get_event_titles(link0, page_num = 5) # a couple NA's
+notgood <- get_event_titles(link0, page_num = 6) # all NA's 
+
+## function to check for if the page exists ----
+
+which(is.na(notgood))
+which(!is.na(ok)) 
+
+#' here's the idea. using the function above `get_event_titles`,
+#' get the titles until an `NA` is detected. then stop scraping pages. 
+#' if `page=1` has an NA, don't scrape `page=2`
+#' 
+#' next step, build this and an argument for the city/location: 
+#'  - madrid
+#'  - barcelona 
+#'  - paris
+#'  - amsterdam 
+#'  - berlin
+#'  - sevilla 
+#'  - ... 
 
