@@ -17,7 +17,7 @@ link0 <- "https://www.eventbrite.es/d/spain--madrid/events--today/"
 link1 <- "https://www.eventbrite.es/d/spain--madrid/events--today/?page=1"
 link2 <- "https://www.eventbrite.es/d/spain--madrid/events--today/?page=2"
 
-
+html_link0 <- link0 |> read_html()
 html_link1 <- link1 |> read_html()
 html_link2 <- link2 |> read_html()
 
@@ -56,6 +56,7 @@ y[z]
 
 todays_event_times <- html_link2 |> 
   xml_find_all("//section[@class='event-card-details']//div[@class='Stack_root__1ksk7']")
+
 todays_event_times |> 
   xml_text()
 
@@ -71,7 +72,7 @@ get_event_titles <- function(link, page_num) {
     xml_find_all("//section[@class='event-card-details']//div[@class='Stack_root__1ksk7']//h2") |> 
     xml_text()
   
-  html_link[seq(from=1, to=40, by=2)]
+  return(html_link[seq(from=1, to=40, by=2)])
 }
 
 ## test it out
@@ -85,6 +86,32 @@ notgood <- get_event_titles(link0, page_num = 6) # all NA's
 which(is.na(notgood))
 which(!is.na(ok)) 
 
+total_pages <- html_link0 |> 
+  xml_find_all("//li[@class='eds-pagination__navigation-minimal eds-l-mar-hor-3']") |> 
+  xml_text() |> 
+  str_extract_all("\\d+$") |> 
+  pluck(1)
+
+total_pages <- as.numeric(total_pages)
+total_pages
+
+check_pages <- function(link){
+  
+  html_link <- link |> read_html()
+  
+  total_pages <- html_link |> 
+    xml_find_all("//li[@class='eds-pagination__navigation-minimal eds-l-mar-hor-3']") |> 
+    xml_text() |> 
+    str_extract_all("\\d+$") |> 
+    pluck(1)
+  
+  total_pages <- as.numeric(total_pages)
+  return(total_pages)
+  
+}
+
+check_pages(link0)
+
 #' here's the idea. using the function above `get_event_titles`,
 #' get the titles until an `NA` is detected. then stop scraping pages. 
 #' if `page=1` has an NA, don't scrape `page=2`
@@ -97,4 +124,23 @@ which(!is.na(ok))
 #'  - berlin
 #'  - sevilla 
 #'  - ... 
+
+get_all_titles <- function(link) {
+  
+  all_titles <- c()
+  num_pages <- check_pages(link = link)
+  
+  for (i in 1:num_pages) {
+    
+    all_titles <- c(all_titles, get_event_titles(link = link, page_num = i)) 
+  }
+
+  
+  return(all_titles[!is.na(all_titles)])
+    
+}
+
+get_all_titles(link0)
+
+
 
