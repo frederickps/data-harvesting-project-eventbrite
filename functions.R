@@ -64,7 +64,7 @@ get_all_titles <- function(link) {
   
   all_titles <- c() # creates empty vector
   
-  pages_count <- check_pages(link = link) # gets number of available pages at this link 
+  pages_count <- count_pages(link = link) # gets number of available pages at this link 
   
   pages_count <- min(10, pages_count) # don't pull more than 10 pages at once
   
@@ -93,3 +93,40 @@ get_all_titles(link = l)
 load_cities_list()
 l <- create_url(city = "sevilla")
 get_all_titles(l)
+
+
+#
+
+html_link <- link_with_page_num |> 
+  read_html()
+
+titles <-
+  "https://www.eventbrite.es/d/united-kingdom--london/events--today/" |> 
+  read_html() |> 
+  xml_find_all("//section[@class='event-card-details']//div[@class='Stack_root__1ksk7']//h2") |> 
+  xml_text()
+
+event_info <-
+  "https://www.eventbrite.es/d/united-kingdom--london/events--today/" |> 
+  read_html() |> 
+  xml_find_all("//section[@class='event-card-details']//div[@class='Stack_root__1ksk7']//p") |> 
+  xml_text()
+
+event_info
+
+link_event_page <-
+  "https://www.eventbrite.es/d/united-kingdom--london/events--today/" |> 
+  read_html() |> 
+  xml_find_all("//section[@class='event-card-details']//div[@class='Stack_root__1ksk7']//a") |> 
+  xml_attr("href")
+
+link_event_page[seq(from=1, to=40, by=2)]
+  
+
+"https://www.eventbrite.es/d/united-kingdom--london/events--today/" |> 
+  read_html() |> 
+  xml_find_all("//section[@class='event-card-details']//div[@class='Stack_root__1ksk7']/div[@class='discover-horizontal-event-card__price-wrapper']/p") |> 
+  xml_text()
+
+
+
