@@ -87,8 +87,6 @@ get_all_titles <- function(link) {
 }
 
 
-
-#
 get_event_links <- function(link, page_num) {
   
   link_with_page_num <- paste0(link, "?page=", page_num) # adds page number info to url 
@@ -105,7 +103,6 @@ get_event_links <- function(link, page_num) {
 }
 
 
-#
 get_all_event_links <- function(link) {
   
   all_event_links <- c() # creates empty vector
@@ -116,21 +113,72 @@ get_all_event_links <- function(link) {
   
   for (i in 1:pages_count) {
     
-    Sys.sleep(5)
+    Sys.sleep(2)
     # loops through number of pages 
-    # gets a new batch of titles from page i 
+    # gets a new batch of event links from page i 
     links <- get_event_links(link = link, page_num = i)
     
     # adds it to the full vector of titles 
     all_event_links <- c(all_event_links, links) 
   }
   
-  # returns only titles that are not NA and that are unique
+  # returns only event links that are not NA and that are unique
   return(unique(all_event_links[!is.na(all_event_links)]))
   
 }
 
+get_event_info <- function(link) {
+  
+shared_df <- data.frame(Duration = character(), 
+                        Ticket_Type = character(),
+                        Refund_Policy = character(), 
+                        Description = character(), 
+                        stringsAsFactors = FALSE)
 
+all_links <- get_all_event_links(link)
+
+# Loop over each link in 'test_object'
+for (i in seq_along(all_links)) {
+  
+  link <- all_links[i]
+  
+  # Read HTML and extract duration
+  duration <- link |> 
+    read_html() |> 
+    xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
+    xml_text() %>%
+    .[[1]]
+  
+  # Extract ticket type
+  ticket_type <- link |> 
+    read_html() |> 
+    xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
+    xml_text() %>%
+    .[[2]]
+  
+  # Extract refund policy
+  refund_policy <- link |> 
+    read_html() |> 
+    xml_find_all("//div[@class = 'Layout-module__module___2eUcs Layout-module__refundPolicy___fQ8I7']//section[@class = 'event-details__section']/div") |> 
+    xml_text() %>%
+    .[[2]]
+  
+  # Extract description
+  description <- link |> 
+    read_html() |> 
+    xml_find_all("//div[@class = 'eds-text--left']//p") |> 
+    xml_text() |> 
+    discard(~.x == "") |> 
+    paste(collapse = " ") 
+  
+  # Add duration, ticket type, refund policy, and description to the shared data frame
+  shared_df[i, "Duration"] <- duration
+  shared_df[i, "Ticket_Type"] <- ticket_type
+  shared_df[i, "Refund_Policy"] <- refund_policy
+  shared_df[i, "Description"] <- description
+}
+return(shared_df)
+}
 
 
 
@@ -143,13 +191,117 @@ get_all_titles(link = l)
 # getting event links
 load_cities_list()
 l <- create_url(city = "cadiz")
-get_all_event_links(l)
 
+test_object <- get_all_event_links(l)
 
 
 # Testing ground
-html_link <- link_with_page_num |> 
-  read_html()
+
+# start and end
+
+pre_converted_time <-
+  "https://www.eventbrite.com/e/the-world-is-yours-english-open-mic-in-township-tickets-783588733997?aff=ebdssbdestsearch&keep_tld=1" |> 
+  read_html() |> 
+  xml_find_all("//div[@class = 'date-info']//span") |> 
+  xml_text() |>  
+  str_extract_all("\\d+:\\d+(?:pm|PM)?")%>%
+  .[[1]] |> 
+  paste(collapse = " - ")
+
+converted_time <- convert_time_format(pre_converted_time) |> 
+  str_split("-") %>%
+  .[[1]] |> 
+  trimws() %>%
+  .[[1]]
+
+# needed for return one 
+#convert_time_format <- function(time_string) {
+  # Check if "pm" or "PM" is present in the input string
+  if (str_detect(time_string, "pm|PM")) {
+    # Extract hours and minutes from the input string
+    time_parts <- str_match(time_string, "(\\d+):(\\d+) - (\\d+):(\\d+)(pm)?")
+    start_hour <- as.integer(time_parts[2])
+    start_minute <- as.integer(time_parts[3])
+    end_hour <- as.integer(time_parts[4])
+    end_minute <- as.integer(time_parts[5])
+    
+    # Convert to 24-hour format
+    if (start_hour != 12) {
+      start_hour <- start_hour + 12
+    }
+    if (end_hour != 12) {
+      end_hour <- end_hour + 12
+    }
+    
+    # Return the time string in the desired format
+    result <- sprintf("%02d:%02d - %02d:%02d", start_hour, start_minute, end_hour, end_minute)
+  } else {
+    # Return the original time string if "pm" or "PM" is not present
+    result <- time_string
+  }
+  
+  return(result)
+}# 
+
+# duration
+duration <-
+  link |> 
+  read_html() |> 
+  xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
+  xml_text() %>% 
+  .[[1]]
+
+link |> 
+  read_html() |> 
+  xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
+  xml_text() %>% 
+  .[[1]]
+
+
+# ticket type
+ticket_type <-
+  link |> 
+  read_html() |> 
+  xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
+  xml_text() %>% 
+  .[[2]]
+
+
+# refund policy
+refund_policy <-
+  link |> 
+  read_html() |> 
+  xml_find_all("//div[@class = 'Layout-module__module___2eUcs Layout-module__refundPolicy___fQ8I7']//section[@class = 'event-details__section']/div") |> 
+  xml_text() %>%
+  .[[2]]
+
+# description
+description <- 
+  link |> 
+  read_html() |> 
+  xml_find_all("//div[@class = 'eds-text--left']//p") |> 
+  xml_text() |> 
+  discard(~.x == "") |> 
+  paste(collapse = " ")
+
+
+#
+
+"https://www.eventbrite.es/e/psychedelic-fridays-32-the-last-chapter-tickets-811257622387?aff=ebdssbdestsearch&keep_tld=1" |> 
+  read_html() |> 
+  xml_find_all("//div[@class = 'date-info']//span") |> 
+  xml_text() |>  
+  str_extract_all("(\\d+:)?\\d+(?:pm|PM|am|AM)?\\b")%>%
+  .[[1]] |> 
+  paste(collapse = " - ")
+
+event-details__main-inner
+
+"https://www.eventbrite.com/e/swiftogeddon-the-taylor-swift-club-night-tickets-769590464797?aff=ebdssbdestsearch&keep_tld=1" |> 
+  read_html() |> 
+  xml_find_all("//ul[@class = css-1i6cdnn]//span") |> 
+  xml_text()
+
 
 titles <-
   "https://www.eventbrite.es/d/united-kingdom--london/events--today/" |> 
