@@ -3,7 +3,7 @@
 library(tidyverse)
 library(rvest)
 library(xml2)
-
+library(jsonlite)
 
 load_cities_list <- function() {
   
@@ -77,6 +77,7 @@ get_all_titles <- function(link) {
     
     # adds it to the full vector of titles 
     all_titles <- c(all_titles, titles) 
+    print(i/10)
   }
   
   # returns only titles that are not NA 
@@ -97,14 +98,13 @@ get_all_titles(l)
 
 #
 
-html_link <- link_with_page_num |> 
+html_link <- l |> 
   read_html()
 
 titles <-
-  "https://www.eventbrite.es/d/united-kingdom--london/events--today/" |> 
+  l |> 
   read_html() |> 
-  xml_find_all("//section[@class='event-card-details']//div[@class='Stack_root__1ksk7']//h2") |> 
-  xml_text()
+  xml_find_all("//section[@class='event-card-details']//div[@class='Stack_root__1ksk7']//h2")
 
 event_info <-
   "https://www.eventbrite.es/d/united-kingdom--london/events--today/" |> 
@@ -127,6 +127,15 @@ link_event_page[seq(from=1, to=40, by=2)]
   read_html() |> 
   xml_find_all("//section[@class='event-card-details']//div[@class='Stack_root__1ksk7']/div[@class='discover-horizontal-event-card__price-wrapper']/p") |> 
   xml_text()
+
+# pull the JSON part 
+
+json_script <- l |> read_html() |> 
+  xml_find_all("//script[@type='application/ld+json']") |> pluck(1) 
+
+json_script
+
+
 
 
 
