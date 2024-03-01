@@ -22,6 +22,8 @@ load_cities_list <- function() {
 
 create_url <- function(city) {
   
+  cities_list <- load_cities_list()  # loading city list into function
+  
   url_city <- cities_list$text[cities_list$input == city]
   
   url_root <- "https://www.eventbrite.es/d/"
@@ -84,19 +86,68 @@ get_all_titles <- function(link) {
   
 }
 
+
+
+#
+get_event_links <- function(link, page_num) {
+  
+  link_with_page_num <- paste0(link, "?page=", page_num) # adds page number info to url 
+  
+  html_link <- link_with_page_num |> 
+    read_html() |>
+    xml_find_all("//section[@class='event-card-details']//div[@class='Stack_root__1ksk7']//a") |> 
+    xml_attr("href")
+  
+  # remove the repeating titles 
+  links <- unique(html_link)
+  
+  return(links)
+}
+
+
+#
+get_all_event_links <- function(link) {
+  
+  all_event_links <- c() # creates empty vector
+  
+  pages_count <- count_pages(link = link) # gets number of available pages at this link 
+  
+  pages_count <- min(10, pages_count) # don't pull more than 10 pages at once
+  
+  for (i in 1:pages_count) {
+    
+    Sys.sleep(5)
+    # loops through number of pages 
+    # gets a new batch of titles from page i 
+    links <- get_event_links(link = link, page_num = i)
+    
+    # adds it to the full vector of titles 
+    all_event_links <- c(all_event_links, links) 
+  }
+  
+  # returns only titles that are not NA and that are unique
+  return(unique(all_event_links[!is.na(all_event_links)]))
+  
+}
+
+
+
+
+
 ## examples -> 
 
 l <- "https://www.eventbrite.es/d/united-kingdom--london/events--today/"
 count_pages(l)
 get_all_titles(link = l)
 
+# getting event links
 load_cities_list()
-l <- create_url(city = "sevilla")
-get_all_titles(l)
+l <- create_url(city = "cadiz")
+get_all_event_links(l)
 
 
-#
 
+# Testing ground
 html_link <- link_with_page_num |> 
   read_html()
 
@@ -118,9 +169,10 @@ link_event_page <-
   "https://www.eventbrite.es/d/united-kingdom--london/events--today/" |> 
   read_html() |> 
   xml_find_all("//section[@class='event-card-details']//div[@class='Stack_root__1ksk7']//a") |> 
-  xml_attr("href")
+  xml_attr("href") 
+unique(link_event_page)
 
-link_event_page[seq(from=1, to=40, by=2)]
+
   
 
 "https://www.eventbrite.es/d/united-kingdom--london/events--today/" |> 
