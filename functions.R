@@ -146,22 +146,19 @@ for (i in seq_along(all_links)) {
   duration <- link |> 
     read_html() |> 
     xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
-    xml_text() %>%
-    .[[1]]
+    xml_text() |> pluck(1)
   
   # Extract ticket type
   ticket_type <- link |> 
     read_html() |> 
     xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
-    xml_text() %>%
-    .[[2]]
+    xml_text() |> pluck(2)
   
   # Extract refund policy
   refund_policy <- link |> 
     read_html() |> 
     xml_find_all("//div[@class = 'Layout-module__module___2eUcs Layout-module__refundPolicy___fQ8I7']//section[@class = 'event-details__section']/div") |> 
-    xml_text() %>%
-    .[[2]]
+    xml_text() |> pluck(2)
   
   # Extract description
   description <- link |> 
@@ -180,7 +177,20 @@ for (i in seq_along(all_links)) {
 return(shared_df)
 }
 
-
+get_event_json <- function(event_link) {
+  
+  json <- 
+    event_link |> # link from argument 
+    read_html() |> 
+    xml_find_all("//script[@type='application/ld+json']") |> 
+    pluck(1) |> 
+    xml_text() 
+  
+  json <- jsonlite::fromJSON(json)
+  
+  return(json)
+  
+}
 
 ## examples -> 
 
@@ -193,6 +203,7 @@ load_cities_list()
 l <- create_url(city = "cadiz")
 
 test_object <- get_all_event_links(l)
+get_event_json(test_object[1])
 
 
 # Testing ground
