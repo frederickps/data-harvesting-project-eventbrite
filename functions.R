@@ -3,7 +3,7 @@
 library(tidyverse)
 library(rvest)
 library(xml2)
-
+library(jsonlite)
 
 load_cities_list <- function() {
   
@@ -133,6 +133,10 @@ shared_df <- data.frame(Duration = character(),
                         Ticket_Type = character(),
                         Refund_Policy = character(), 
                         Description = character(), 
+                        Currency = character(),
+                        LowPrice = numeric(),
+                        HighPrice = numeric(),
+                        EventStatus = character(),
                         stringsAsFactors = FALSE)
 
 all_links <- get_all_event_links(link)
@@ -141,16 +145,15 @@ all_links <- get_all_event_links(link)
 for (i in seq_along(all_links)) {
   
   link <- all_links[i]
+  html <- link |> read_html()
   
   # Read HTML and extract duration if there is information, if not NA
-  duration <- if (link |> 
-                  read_html() |> 
+  duration <- if (html |> 
                   xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
                   length() == 0) {
     NA
   } else {
-    link |>
-      read_html() |>
+    html |>
       xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |>
       xml_text() %>%
       .[[1]]
@@ -158,42 +161,36 @@ for (i in seq_along(all_links)) {
     
   
   # Extract ticket type
-  ticket_type <- if (link |> 
-    read_html() |> 
+  ticket_type <- if (html |> 
     xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
     length() == 0) {
       "Sold out"
     } else {
-      link |> 
-        read_html() |> 
+      html |> 
         xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
         xml_text() %>%
         .[[2]]
     }
   
   # Extract refund policy
-  refund_policy <- if (link |> 
-    read_html() |> 
+  refund_policy <- if (html |> 
     xml_find_all("//div[@class = 'Layout-module__module___2eUcs Layout-module__refundPolicy___fQ8I7']//section[@class = 'event-details__section']/div") |> 
     length() == 0) {
       NA
     } else {
-      link |> 
-        read_html() |> 
+      html |> 
         xml_find_all("//div[@class = 'Layout-module__module___2eUcs Layout-module__refundPolicy___fQ8I7']//section[@class = 'event-details__section']/div") |> 
         xml_text() %>%
         .[[2]]
     }
   
   # Extract description
-  description <- if (link |> 
-    read_html() |> 
+  description <- if (html |> 
     xml_find_all("//div[@class = 'eds-text--left']//p") |> 
     length() == 0){
       NA
     } else {
-      link |> 
-        read_html() |> 
+      html |> 
         xml_find_all("//div[@class = 'eds-text--left']//p") |> 
         xml_text() |> 
         discard(~.x == "") |> 
@@ -205,13 +202,38 @@ for (i in seq_along(all_links)) {
   shared_df[i, "Ticket_Type"] <- ticket_type
   shared_df[i, "Refund_Policy"] <- refund_policy
   shared_df[i, "Description"] <- description
+
+  # pull json data 
+  json <- 
+    html |> 
+    xml_find_all("//script[@type='application/ld+json']") |> 
+    pluck(1) |> 
+    xml_text()
+  json <- fromJSON(json)
+  
+  shared_df[i, "LowPrice"] <- json$offers$lowPrice[1]
+  shared_df[i, "HighPrice"] <- json$offers$highPrice[1]
+  shared_df[i, "Currency"] <- json$offers$priceCurrency[1]
+  shared_df[i, "Organizer"] <- json$organizer$name
+  shared_df[i, "EventStatus"] <- json$eventStatus
+  shared_df[i, "StartTime"] <- lubridate::as_datetime(json$startDate)
+  shared_df[i, "EndTime"] <- lubridate::as_datetime(json$endDate)
+  shared_df[i, "Title"] <- json$name
+  shared_df[i, "Subtitle"] <- json$description
+  shared_df[i, "url"] <- json$url
+  
 }
+
 return(shared_df)
 }
 
 
 
-## examples -> 
+
+
+
+
+## examples ----
 
 l <- "https://www.eventbrite.es/d/united-kingdom--london/events--today/"
 count_pages(l)
@@ -219,12 +241,12 @@ get_all_titles(link = l)
 
 # getting event links
 load_cities_list()
-l <- create_url(city = "cadiz")
+l <- create_url(city = "madrid")
 
 test_object <- get_all_event_links(l)
+df <- get_event_info(l)
 
-
-# Testing ground
+# Testing ground ----
 
 # if else function
 
@@ -302,7 +324,7 @@ converted_time <- convert_time_format(pre_converted_time) |>
   }
   
   return(result)
-}# 
+#}# 
 
 # duration
 duration <-
