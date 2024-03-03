@@ -142,34 +142,63 @@ for (i in seq_along(all_links)) {
   
   link <- all_links[i]
   
-  # Read HTML and extract duration
-  duration <- link |> 
-    read_html() |> 
-    xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
-    xml_text() %>%
-    .[[1]]
+  # Read HTML and extract duration if there is information, if not NA
+  duration <- if (link |> 
+                  read_html() |> 
+                  xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
+                  length() == 0) {
+    NA
+  } else {
+    link |>
+      read_html() |>
+      xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |>
+      xml_text() %>%
+      .[[1]]
+  }
+    
   
   # Extract ticket type
-  ticket_type <- link |> 
+  ticket_type <- if (link |> 
     read_html() |> 
     xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
-    xml_text() %>%
-    .[[2]]
+    length() == 0) {
+      "Sold out"
+    } else {
+      link |> 
+        read_html() |> 
+        xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
+        xml_text() %>%
+        .[[2]]
+    }
   
   # Extract refund policy
-  refund_policy <- link |> 
+  refund_policy <- if (link |> 
     read_html() |> 
     xml_find_all("//div[@class = 'Layout-module__module___2eUcs Layout-module__refundPolicy___fQ8I7']//section[@class = 'event-details__section']/div") |> 
-    xml_text() %>%
-    .[[2]]
+    length() == 0) {
+      NA
+    } else {
+      link |> 
+        read_html() |> 
+        xml_find_all("//div[@class = 'Layout-module__module___2eUcs Layout-module__refundPolicy___fQ8I7']//section[@class = 'event-details__section']/div") |> 
+        xml_text() %>%
+        .[[2]]
+    }
   
   # Extract description
-  description <- link |> 
+  description <- if (link |> 
     read_html() |> 
     xml_find_all("//div[@class = 'eds-text--left']//p") |> 
-    xml_text() |> 
-    discard(~.x == "") |> 
-    paste(collapse = " ") 
+    length() == 0){
+      NA
+    } else {
+      link |> 
+        read_html() |> 
+        xml_find_all("//div[@class = 'eds-text--left']//p") |> 
+        xml_text() |> 
+        discard(~.x == "") |> 
+        paste(collapse = " ") 
+    }
   
   # Add duration, ticket type, refund policy, and description to the shared data frame
   shared_df[i, "Duration"] <- duration
@@ -197,10 +226,42 @@ test_object <- get_all_event_links(l)
 
 # Testing ground
 
+# if else function
+
+link <- "https://www.eventbrite.com/e/48-wurzburger-gypsy-jazz-session-tickets-797993759817?aff=ebdssbdestsearch&keep_tld=1"
+
+link <- "https://www.eventbrite.com/e/breakout-frankfurt-tickets-826263906587?aff=ebdssbdestsearch&keep_tld=1"
+
+duration <- if (link |> 
+                read_html() |> 
+                xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
+                length() == 0) {
+  NA
+} else {
+  link |>
+    read_html() |>
+    xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |>
+    xml_text() %>%
+    .[[1]]
+}
+
+ticket_type <- if (link |> 
+                   read_html() |> 
+                   xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
+                   length() == 0) {
+  "Sold out"
+} else {
+  link |> 
+    read_html() |> 
+    xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
+    xml_text() %>%
+    .[[2]]
+}
+
 # start and end
 
 pre_converted_time <-
-  "https://www.eventbrite.com/e/the-world-is-yours-english-open-mic-in-township-tickets-783588733997?aff=ebdssbdestsearch&keep_tld=1" |> 
+  "https://www.eventbrite.com/e/heidelberg-outdoor-escape-game-germanys-oldest-university-city-highlights-tickets-706499678557?aff=ebdssbdestsearch" |> 
   read_html() |> 
   xml_find_all("//div[@class = 'date-info']//span") |> 
   xml_text() |>  
