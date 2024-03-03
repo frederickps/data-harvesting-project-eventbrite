@@ -241,7 +241,7 @@ converted_time <- convert_time_format(pre_converted_time) |>
   }
   
   return(result)
-}# 
+}
 
 # duration
 duration <-
