@@ -281,6 +281,27 @@ ticket_type <- if (link |>
 }
 
 # start and end
+link <- "https://www.eventbrite.com/e/48-wurzburger-gypsy-jazz-session-tickets-797993759817?aff=ebdssbdestsearch&keep_tld=1"
+
+link <- "https://www.eventbrite.com/e/entradas-el-canto-del-loco-pereza-fito-y-fitipaldis-conciertos-tributo-y-sesion-801201935557?aff=ebdssbdestsearch&keep_tld=1"
+
+link <- "https://www.eventbrite.com/e/favela-in-town-heaven-in-rio-tickets-790358071267?aff=ebdssbdestsearch&keep_tld=1"
+
+link <- "https://www.eventbrite.com/e/mind-remapping-lost-without-an-identity-crisis-online-paris-tickets-809069577887?aff=ebdssbdestsearch&keep_tld=1"
+
+link <- "https://www.eventbrite.com/e/cruising-01-the-world-is-not-enough-tickets-849423056227?aff=ebdssbdestsearch&keep_tld=1"
+
+link |> 
+  read_html() |> 
+  xml_find_all("//div[@class = 'date-info']//span") |> 
+  xml_text() |>  
+  str_extract_all("\\d+:\\d+(?:pm|PM|am|AM)?|(?:\\d+:)?\\d+pm|\\d+PM|\\d+am|\\d+AM")%>%
+  .[[1]] %>% 
+  {if (!any(str_detect(., "\\b\\d{1,2}:\\d{2}\\b.*\\b\\d{1,2}:\\d{2}\\b"))) {
+    paste(., " - 00:00")
+  } else {
+    paste(., collapse = " - ")
+  }} 
 
 pre_converted_time <-
   "https://www.eventbrite.com/e/heidelberg-outdoor-escape-game-germanys-oldest-university-city-highlights-tickets-706499678557?aff=ebdssbdestsearch" |> 
