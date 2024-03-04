@@ -281,36 +281,51 @@ ticket_type <- if (link |>
 }
 
 # start and end
-link <- "https://www.eventbrite.com/e/48-wurzburger-gypsy-jazz-session-tickets-797993759817?aff=ebdssbdestsearch&keep_tld=1"
+link <- "https://www.eventbrite.com/e/london-startup-networking-tickets-849932459867?aff=ebdssbdestsearch"
 
-link <- "https://www.eventbrite.com/e/entradas-el-canto-del-loco-pereza-fito-y-fitipaldis-conciertos-tributo-y-sesion-801201935557?aff=ebdssbdestsearch&keep_tld=1"
+link <- "https://www.eventbrite.com/e/an-evening-of-poetry-and-prose-with-mike-parker-and-hanan-issa-tickets-761231332407?aff=ebdssbdestsearch"
 
-link <- "https://www.eventbrite.com/e/favela-in-town-heaven-in-rio-tickets-790358071267?aff=ebdssbdestsearch&keep_tld=1"
+link <- "https://www.eventbrite.com/e/penny-lecture-james-mac-tickets-819956039587?aff=ebdssbdestsearch&keep_tld=1"
 
-link <- "https://www.eventbrite.com/e/mind-remapping-lost-without-an-identity-crisis-online-paris-tickets-809069577887?aff=ebdssbdestsearch&keep_tld=1"
-
-link <- "https://www.eventbrite.com/e/cruising-01-the-world-is-not-enough-tickets-849423056227?aff=ebdssbdestsearch&keep_tld=1"
+link <- "https://www.eventbrite.com/e/healing-breathwork-accelerate-emotional-and-physical-healing-bexley-tickets-820692071077?aff=ebdssbdestsearch"
 
 link |> 
   read_html() |> 
   xml_find_all("//div[@class = 'date-info']//span") |> 
   xml_text() |>  
-  str_extract_all("\\d+:\\d+(?:pm|PM|am|AM)?|(?:\\d+:)?\\d+pm|\\d+PM|\\d+am|\\d+AM")%>%
-  .[[1]] %>% 
-  {if (!any(str_detect(., "\\b\\d{1,2}:\\d{2}\\b.*\\b\\d{1,2}:\\d{2}\\b"))) {
-    paste(., " - 00:00")
+  str_extract_all("\\b(?:\\d+:\\d+(?:pm|PM|am|AM)?|(?:\\d+:)?\\d+pm|\\d+PM|\\d+am|\\d+AM|\\d+ - \\d+:\\d+(?:pm|PM|am|AM)?|\\d+ - \\d+(?:pm|PM|am|AM)?)") %>%
+  .[[1]] %>%
+  paste0(collapse = " - ")  %>% 
+  {if (str_detect(., "\\b\\d{1}(?![0-9]|:)(?:pm|PM|am|AM)")) { # Matches single-digit numbers not followed by another digit or colon, followed by "pm" or "am"
+    gsub("\\b(\\d{1})(pm|PM|am|AM)", "0\\1:00\\2", .)
+  } else if (str_detect(., "\\b(\\d{1}):?")) { # Matches singular numbers followed by a colon
+    gsub("\\b(\\d{1}):", "0\\1:", .)
+  } else if (str_detect(., "\\d{1} - \\d{1}(?:pm|PM|am|AM)?")){
+    gsub("(\\d{1,2}) - (\\d{1,2})(pm|PM|am|AM)", "0\\1:00 - 0\\2:00\\3", .)
+  } else if (str_detect(., "\\d{1}(?:pm|PM|am|AM)?")){
+    if_else(str_detect(., "pm|PM"), gsub("(\\d{1})(pm|PM|am|AM)?", "0\\1:00 - 00:00pm", .), 
+            gsub("(\\d{1})(pm|PM|am|AM)?", "0\\1:00 - 00:00", .))
+  } else if (str_detect(., "\\d{1}")) {
+    gsub("(\\d{1})", "0\\1:00", .)
   } else {
-    paste(., collapse = " - ")
-  }} 
+    paste(.)
+  }
+  } %>%
+  gsub("\\b(\\d)( - |$)", "0\\1:00\\2", .)
+  
+# old regex
+str_extract_all("\\d+:\\d+(?:pm|PM|am|AM)?|(?:\\d+:)?\\d+pm|\\d+PM|\\d+am|\\d+AM|\\d+ - \\d+(?:pm|PM|am|AM)?|\\d - \\d:\\d+(?:pm|PM|am|AM)?")
+#
+str_extract_all("\\b(?:\\d+:\\d+(?:pm|PM|am|AM)?|(?:\\d+:)?\\d+pm|\\d+PM|\\d+am|\\d+AM|\\d+ - \\d+:\\d+(?:pm|PM|am|AM)?|\\d - \\d+:\\d+(?:pm|PM|am|AM)?)")
+#
 
-pre_converted_time <-
-  "https://www.eventbrite.com/e/heidelberg-outdoor-escape-game-germanys-oldest-university-city-highlights-tickets-706499678557?aff=ebdssbdestsearch" |> 
-  read_html() |> 
-  xml_find_all("//div[@class = 'date-info']//span") |> 
-  xml_text() |>  
-  str_extract_all("\\d+:\\d+(?:pm|PM)?")%>%
-  .[[1]] |> 
-  paste(collapse = " - ")
+string <- "Monday, March 4 · 7 - 18:00pm GMT"
+string %>% 
+  str_extract_all("\\b(?:\\d+:\\d+(?:pm|PM|am|AM)?|(?:\\d+:)?\\d+pm|\\d+PM|\\d+am|\\d+AM|\\d+ - \\d+:\\d+(?:pm|PM|am|AM)?|\\d+ - \\d+(?:pm|PM|am|AM)?)")%>%
+  .[[1]] %>%
+  paste0(collapse = " - ")
+
+
 
 converted_time <- convert_time_format(pre_converted_time) |> 
   str_split("-") %>%
@@ -319,7 +334,7 @@ converted_time <- convert_time_format(pre_converted_time) |>
   .[[1]]
 
 # needed for return one 
-#convert_time_format <- function(time_string) {
+convert_time_format <- function(time_string) {
   # Check if "pm" or "PM" is present in the input string
   if (str_detect(time_string, "pm|PM")) {
     # Extract hours and minutes from the input string
@@ -345,7 +360,32 @@ converted_time <- convert_time_format(pre_converted_time) |>
   }
   
   return(result)
-#}# 
+
+}
+
+#
+link |> 
+  read_html() |> 
+  xml_find_all("//div[@class = 'date-info']//span") |> 
+  xml_text() |>  
+  str_extract_all("\\b(?:\\d+:\\d+(?:pm|PM|am|AM)?|(?:\\d+:)?\\d+pm|\\d+PM|\\d+am|\\d+AM|\\d+ - \\d+:\\d+(?:pm|PM|am|AM)?|\\d+ - \\d+(?:pm|PM|am|AM)?)")%>%
+  .[[1]] %>%
+  paste0(collapse = " - ")  %>% 
+  {if (str_detect(., "\\b(\\d{1}):?")) { 
+    gsub("\\b(\\d{1}):", "0\\1:", .)
+  } else if (str_detect(., "\\d{1} - \\d{1}(?:pm|PM|am|AM)?")){
+    gsub("(\\d{1,2}) - (\\d{1,2})(pm|PM|am|AM)", "0\\1:00 - 0\\2:00\\3", .)
+  } else if (str_detect(., "\\d{1}(?:pm|PM|am|AM)?")){
+    if_else(str_detect(., "pm|PM"), gsub("(\\d{1})(pm|PM|am|AM)?", "0\\1:00 - 00:00pm", .), 
+            gsub("(\\d{1})(pm|PM|am|AM)?", "0\\1:00 - 00:00", .))
+  } else if (str_detect(., "\\d{1}")) {
+    gsub("(\\d{1})", "0\\1:00", .)
+  } else {
+    paste(.)
+  }
+  } %>%
+  gsub("\\b(\\d)( - |$)", "0\\1:00\\2", .)
+
 
 # duration
 duration <-
