@@ -141,7 +141,7 @@ convert_time_format <- function(time_string) {
     if (start_hour != 12) {
       start_hour <- start_hour + 12
     }
-    if (end_hour != 12) {
+    else if (end_hour != 12) {
       end_hour <- end_hour + 12
     }
     
@@ -174,8 +174,8 @@ all_links <- get_all_event_links(link)
 # Loop over each link in 'test_object'
 for (i in seq_along(all_links)) {
   
-  link <- all_links[i]
-  html <- link |> read_html()
+  l <- all_links[i]
+  html <- l |> read_html()
   
   # Read HTML and extract duration if there is information, if not NA
   duration <- if (html |> 
@@ -260,14 +260,14 @@ for (i in seq_along(all_links)) {
       gsub("^(\\d{2}:\\d{2})$", "\\1 - 00:00\\2", .)
   }
   
-  startime <- convert_time_format(pre_converted_time)
+  # startime <- convert_time_format(pre_converted_time)
   
   # Add duration, ticket type, refund policy, and description to the shared data frame
   shared_df[i, "Duration"] <- duration
   shared_df[i, "Ticket_Type"] <- ticket_type
   shared_df[i, "Refund_Policy"] <- refund_policy
   shared_df[i, "Description"] <- description
-  shared_df[i, "StartTime"] <- starttime
+  # shared_df[i, "StartTime"] <- starttime
 
   # pull json data 
   json <- 
@@ -287,6 +287,8 @@ for (i in seq_along(all_links)) {
   shared_df[i, "Title"] <- json$name
   shared_df[i, "Subtitle"] <- json$description
   shared_df[i, "url"] <- json$url
+  
+  print(pre_converted_time)
   
 }
 
@@ -359,7 +361,7 @@ link <- "https://www.eventbrite.es/e/entradas-wine-tasting-flamenco-master-class
 
 link <- "https://www.eventbrite.com/e/pub-crawl-madrid-tickets-518065446697?aff=ebdssbdestsearch&keep_tld=1"
 
-link <- "https://www.eventbrite.com/e/breathwork-healing-session-joy-of-breathing-alcorcon-tickets-418163035897?aff=ebdssbdestsearch"
+link <- "https://www.eventbrite.es/e/repeating-events-with-200-tickets-tickets-366727039447?aff=ebdssbdestsearch&keep_tld=1"
 
 link |> 
   read_html() |> 
@@ -456,6 +458,8 @@ convert_time_format <- function(time_string) {
   
   return(result)
 }
+
+convert_time_format(pre_converted_time)
 
 # duration
 duration <-
