@@ -1,0 +1,166 @@
+---
+title: "Functions"
+author: "Eric, Frederic"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(rvest)
+library(xml2)
+library(jsonlite)
+```
+
+## Load cities 
+
+Currently includes Madrid, Rome, London, Lyon, Paris, Barcelona, Torino, Sevilla, and Cádiz. 
+
+```{r}
+load_cities_list <- function() {
+  
+  cities_list <- tribble(~input, ~text,
+                         "madrid", "spain--madrid",
+                         "roma", "italy--roma",
+                         "london", "united-kingdom--london",
+                         "lyon", "france--lyon",
+                         "paris", "france--paris",
+                         "barcelona", "spain--barcelona",
+                         "torino", "italy--torino",
+                         "sevilla", "spain--sevilla",
+                         "cadiz", "spain--cádiz",
+  )
+}
+```
+
+
+## Create URL 
+
+```{r}
+create_url <- function(city) {
+  
+  cities_list <- load_cities_list()  # loading city list into function
+  
+  url_city <- cities_list$text[cities_list$input == city]
+  
+  url_root <- "https://www.eventbrite.es/d/"
+  url_suffix <- "/events--today/"
+  
+  url <- paste0(url_root, url_city, url_suffix)
+  
+  return(url)
+}
+```
+
+
+## Count pages 
+
+```{r}
+count_pages <- function(link){
+  
+  total_pages <- link |> 
+    read_html() |> 
+    xml_find_all("//li[@class='eds-pagination__navigation-minimal eds-l-mar-hor-3']") |> 
+    xml_text() |> 
+    str_extract_all("\\d+$") |> 
+    pluck(1)
+  
+  total_pages <- as.numeric(total_pages)
+  return(total_pages) # returns the number of available pages as an integer
+}
+```
+
+
+## Get event titles 
+> not really needed now that we have get all links 
+
+## Get all titles 
+> not really needed now that we have get all links 
+
+## Get event links 
+
+This function returns all the links for one page, given in the arguement. 
+
+```{r}
+get_event_links <- function(link, page_num) {
+  
+  link_with_page_num <- paste0(link, "?page=", page_num) # adds page number info to url 
+  
+  html_link <- link_with_page_num |> 
+    read_html() |>
+    xml_find_all("//section[@class='event-card-details']//div[@class='Stack_root__1ksk7']//a") |> 
+    xml_attr("href")
+  
+  # remove the repeating titles 
+  links <- unique(html_link)
+  
+  return(links)
+}
+```
+
+## Get all event links 
+
+This function returns all the event links for all pages for a city. 
+
+Includes `count_pages()` and `get_event_links()`. 
+
+Also includes `Sys.sleep(2)`. 
+
+```{r}
+get_all_event_links <- function(link) {
+  
+  all_event_links <- c() # creates empty vector
+  
+  pages_count <- count_pages(link = link) # gets number of available pages at this link 
+  pages_count <- min(10, pages_count) # don't pull more than 10 pages at once
+  
+  for (i in 1:pages_count) {
+    
+    Sys.sleep(2)
+    # loops through number of pages 
+    # gets a new batch of event links from page i 
+    links <- get_event_links(link = link, page_num = i)
+    
+    # adds it to the full vector of titles 
+    all_event_links <- c(all_event_links, links) 
+  }
+  
+  # returns only event links that are not NA and that are unique
+  return(unique(all_event_links[!is.na(all_event_links)]))
+  
+}
+```
+
+## Pre-convert time format
+
+This function takes the time of an event and prepares it for `convert_time_format()`.
+
+```{r}
+
+```
+
+
+## Convert time format 
+
+This function converts the 
+
+```{r}
+
+
+```
+
+
+## Get all event info 
+
+This function returns all info needed for all pages of a city's events. 
+
+It includes the following functions written above: 
+
+- 
+
+```{r}
+
+```
+
