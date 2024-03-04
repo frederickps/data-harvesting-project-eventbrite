@@ -353,8 +353,46 @@ link <- "https://www.eventbrite.com/e/an-evening-of-poetry-and-prose-with-mike-p
 
 link <- "https://www.eventbrite.com/e/penny-lecture-james-mac-tickets-819956039587?aff=ebdssbdestsearch&keep_tld=1"
 
-link <- "https://www.eventbrite.com/e/healing-breathwork-accelerate-emotional-and-physical-healing-bexley-tickets-820692071077?aff=ebdssbdestsearch"
+link <- "https://www.eventbrite.com/e/fabletics-x-she-believes-she-can-tickets-848616062487?aff=ebdssbdestsearch&keep_tld=1"
 
+link <- "https://www.eventbrite.es/e/entradas-wine-tasting-flamenco-master-class-pub-crawl-in-madridprivate-groups-638210413527?aff=ebdssbdestsearch"
+
+link <- "https://www.eventbrite.com/e/pub-crawl-madrid-tickets-518065446697?aff=ebdssbdestsearch&keep_tld=1"
+
+link <- "https://www.eventbrite.com/e/breathwork-healing-session-joy-of-breathing-alcorcon-tickets-418163035897?aff=ebdssbdestsearch"
+
+link |> 
+  read_html() |> 
+  xml_find_all("//div[@class = 'date-info']//span") |> 
+  xml_text() %>%
+  filter_list() %>%
+  str_extract_all("\\b(?:\\d+:\\d+(?:pm|PM|am|AM)?|(?:\\d+:)?\\d+pm|\\d+PM|\\d+am|\\d+AM|\\d+ - \\d+:\\d+(?:pm|PM|am|AM)?|\\d+ - \\d+(?:pm|PM|am|AM)?)") %>%
+  .[[1]] %>%
+  paste0(collapse = " - ")  %>% 
+  {if (str_detect(., "\\b\\d{1}(?![0-9]|:)(?:pm|PM|am|AM)")) { # Matches single-digit numbers not followed by another digit or colon, followed by "pm" or "am"
+    gsub("\\b(\\d{1})(pm|PM|am|AM)", "0\\1:00\\2", .)
+  } else if (str_detect(., "\\b(\\d{1}):?")) { # Matches singular numbers followed by a colon
+    gsub("\\b(\\d{1}):", "0\\1:", .)
+  } else if (str_detect(., "\\d{1} - \\d{1}(?:pm|PM|am|AM)?")){
+    gsub("(\\d{1,2}) - (\\d{1,2})(pm|PM|am|AM)", "0\\1:00 - 0\\2:00\\3", .)
+  } else if (str_detect(., "\\d{1,2}(?:pm|PM|am|AM)?")){
+    if_else(str_detect(., "pm|PM"), gsub("(\\d{1,2})(pm|PM|am|AM)?", "0\\1:00 - 00:00pm", .), 
+            gsub("(\\d{1,2})(pm|PM|am|AM)?", "0\\1:00 - 00:00", .))
+  } else if (str_detect(., "\\d{1}")) {
+    gsub("(\\d{1})", "0\\1:00", .)
+  } else {
+    paste(.)
+  }
+  } %>%
+  gsub("\\b(\\d)( - |$)", "0\\1:00\\2", .)%>%
+  gsub("^\\b(\\d{2}:\\d{2})(pm|am|PM|AM)$", "\\1 - 00:00\\2", .) %>%
+  gsub("^(\\d{2}:\\d{2})$", "\\1 - 00:00\\2", .)%>%
+  gsub("(?<=\\s\\d{2})(pm|am|PM|AM)\\b", ":00\\1", ., perl = TRUE)%>%
+  gsub("(\\d{1,2})(am|pm|AM|PM)\\s", "\\1:00\\2 ", ., perl = TRUE) %>%
+  gsub("(pm|am) - ", " - ", .)%>%
+  gsub("(am|AM)$", "pm", .)
+
+#
 pre_converted_time <-
   link |> 
   read_html() |> 
@@ -380,14 +418,15 @@ pre_converted_time <-
   } %>%
   gsub("\\b(\\d)( - |$)", "0\\1:00\\2", .)%>%
   gsub("^\\b(\\d{2}:\\d{2})(pm|am|PM|AM)$", "\\1 - 00:00\\2", .) %>%
-  gsub("^(\\d{2}:\\d{2})$", "\\1 - 00:00\\2", .)
-
-
-converted_time <- convert_time_format(pre_converted_time) |> 
-  str_split("-") %>%
-  .[[1]] |> 
-  trimws() %>%
-  .[[1]]
+  gsub("^(\\d{2}:\\d{2})$", "\\1 - 00:00\\2", .)%>%
+  gsub("(?<=\\s\\d{2})(pm|am|PM|AM)\\b", ":00\\1", ., perl = TRUE)%>%
+  gsub("(\\d{1,2})(am|pm|AM|PM)\\s", "\\1:00\\2 ", ., perl = TRUE) %>%
+  gsub("(pm|am) - ", " - ", .)%>%
+  gsub("(am|AM)$", "pm", .)
+#
+filter_list <- 
+  function(list) {
+    return(list[sapply(list, function(x) is.character(x) && nchar(x) > 0)])}
 
 # needed for return one 
 convert_time_format <- function(time_string) {
