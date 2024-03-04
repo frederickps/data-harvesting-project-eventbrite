@@ -162,7 +162,7 @@ shared_df <- data.frame(Duration = character(),
                         Ticket_Type = character(),
                         Refund_Policy = character(), 
                         Description = character(),
-                        StartTime = character()
+                        StartTime = character(),
                         Currency = character(),
                         LowPrice = numeric(),
                         HighPrice = numeric(),
@@ -255,7 +255,9 @@ for (i in seq_along(all_links)) {
         paste(.)
       }
       } %>%
-      gsub("\\b(\\d)( - |$)", "0\\1:00\\2", .)
+      gsub("\\b(\\d)( - |$)", "0\\1:00\\2", .) %>%
+      gsub("^\\b(\\d{2}:\\d{2})(pm|am|PM|AM)$", "\\1 - 00:00\\2", .) %>%
+      gsub("^(\\d{2}:\\d{2})$", "\\1 - 00:00\\2", .)
   }
   
   startime <- convert_time_format(pre_converted_time)
@@ -377,6 +379,32 @@ pre_converted_time <-
   }
   } %>%
   gsub("\\b(\\d)( - |$)", "0\\1:00\\2", .)
+
+
+string <- "March 5, 15:00 18:00"
+
+string |>  
+  str_extract_all("\\b(?:\\d+:\\d+(?:pm|PM|am|AM)?|(?:\\d+:)?\\d+pm|\\d+PM|\\d+am|\\d+AM|\\d+ - \\d+:\\d+(?:pm|PM|am|AM)?|\\d+ - \\d+(?:pm|PM|am|AM)?)") %>%
+  .[[1]] %>%
+  paste0(collapse = " - ")  %>% 
+  {if (str_detect(., "\\b\\d{1}(?![0-9]|:)(?:pm|PM|am|AM)")) { # Matches single-digit numbers not followed by another digit or colon, followed by "pm" or "am"
+    gsub("\\b(\\d{1})(pm|PM|am|AM)", "0\\1:00\\2", .)
+  } else if (str_detect(., "\\b(\\d{1}):?")) { # Matches singular numbers followed by a colon
+    gsub("\\b(\\d{1}):", "0\\1:", .)
+  } else if (str_detect(., "\\d{1} - \\d{1}(?:pm|PM|am|AM)?")){
+    gsub("(\\d{1,2}) - (\\d{1,2})(pm|PM|am|AM)", "0\\1:00 - 0\\2:00\\3", .)
+  } else if (str_detect(., "\\d{1}(?:pm|PM|am|AM)?")){
+    if_else(str_detect(., "pm|PM"), gsub("(\\d{1})(pm|PM|am|AM)?", "0\\1:00 - 00:00pm", .), 
+            gsub("(\\d{1})(am|AM)?", "0\\1:00 - 00:00", .))
+  } else if (str_detect(., "\\d{1}")) {
+    gsub("(\\d{1})", "0\\1:00", .)
+  } else {
+    paste(.)
+  }
+  } %>%
+  gsub("\\b(\\d)( - |$)", "0\\1:00\\2", .) %>%
+  gsub("^\\b(\\d{2}:\\d{2})(pm|am|PM|AM)$", "\\1 - 00:00\\2", .) %>%
+  gsub("^(\\d{2}:\\d{2})$", "\\1 - 00:00\\2", .)
 
 
 converted_time <- convert_time_format(pre_converted_time) |> 
