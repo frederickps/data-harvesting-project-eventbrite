@@ -14,6 +14,8 @@ library(xml2)
 library(jsonlite)
 ```
 
+# Functions 
+
 ## Load cities 
 
 Currently includes Madrid, Rome, London, Lyon, Paris, Barcelona, Torino, Sevilla, and Cádiz. 
@@ -73,10 +75,10 @@ count_pages <- function(link){
 ```
 
 
-## Get event titles 
+### Get event titles 
 > not really needed now that we have get all links 
 
-## Get all titles 
+### Get all titles 
 > not really needed now that we have get all links 
 
 ## Get event links 
@@ -135,20 +137,92 @@ get_all_event_links <- function(link) {
 
 ## Pre-convert time format
 
-This function takes the time of an event and prepares it for `convert_time_format()`.
+This function takes the html of an event and prepares it for `convert_time_format()`.
 
 ```{r}
-
+pre_convert_time <- function (html) {if (
+    html |> 
+    xml_find_all("//div[@class = 'date-info']//span") |>
+    length() == 0) {
+      NA
+  } 
+  else {
+    html |> 
+      xml_find_all("//div[@class = 'date-info']//span") |> 
+      xml_text() |>  
+      str_extract_all("\\b(?:\\d+:\\d+(?:pm|PM|am|AM)?|(?:\\d+:)?\\d+pm|\\d+PM|\\d+am|\\d+AM|\\d+ - \\d+:\\d+(?:pm|PM|am|AM)?|\\d+ - \\d+(?:pm|PM|am|AM)?)") %>%
+      .[[1]] %>%
+      paste0(collapse = " - ")  %>% 
+      {if (str_detect(., "\\b\\d{1}(?![0-9]|:)(?:pm|PM|am|AM)")) { # Matches single-digit numbers not followed by another digit or colon, followed by "pm" or "am"
+        gsub("\\b(\\d{1})(pm|PM|am|AM)", "0\\1:00\\2", .)
+      } else if (str_detect(., "\\b(\\d{1}):?")) { # Matches singular numbers followed by a colon
+        gsub("\\b(\\d{1}):", "0\\1:", .)
+      } else if (str_detect(., "\\d{1} - \\d{1}(?:pm|PM|am|AM)?")){
+        gsub("(\\d{1,2}) - (\\d{1,2})(pm|PM|am|AM)", "0\\1:00 - 0\\2:00\\3", .)
+      } else if (str_detect(., "\\d{1}(?:pm|PM|am|AM)?")){
+        if_else(str_detect(., "pm|PM"), gsub("(\\d{1})(pm|PM|am|AM)?", "0\\1:00 - 00:00pm", .), 
+                gsub("(\\d{1})(pm|PM|am|AM)?", "0\\1:00 - 00:00", .))
+      } else if (str_detect(., "\\d{1}")) {
+        gsub("(\\d{1})", "0\\1:00", .)
+      } else {
+        paste(.)
+      }
+      } %>%
+      gsub("\\b(\\d)( - |$)", "0\\1:00\\2", .)%>%
+      gsub("^\\b(\\d{2}:\\d{2})(pm|am|PM|AM)$", "\\1 - 00:00\\2", .) %>%
+      gsub("^(\\d{2}:\\d{2})$", "\\1 - 00:00\\2", .)
+  }
+  }
 ```
 
 
 ## Convert time format 
 
-This function converts the 
+This function converts a time string into a format usable for the final data table. 
 
 ```{r}
+convert_time_format <- function(time_string) {
+  
+  # Check if "pm" or "PM" is present in the input string
+  if (str_detect(time_string, "pm|PM")) {
+    
+    # Extract hours and minutes from the input string
+    time_parts <- str_match(time_string, "(\\d+):(\\d+) - (\\d+):(\\d+)(pm)?")
+    start_hour <- as.integer(time_parts[2])
+    start_minute <- as.integer(time_parts[3])
+    end_hour <- as.integer(time_parts[4])
+    end_minute <- as.integer(time_parts[5])
+    
+    # Convert to 24-hour format
+    if (start_hour != 12) {
+      start_hour <- start_hour + 12
+    }
+    if (end_hour != 12) {
+      end_hour <- end_hour + 12
+    }
+    
+    # Return the time string in the desired format
+    result <- sprintf("%02d:%02d - %02d:%02d", start_hour, start_minute, end_hour, end_minute)
+  } 
+  else {
+    
+    # Return the original time string if "pm" or "PM" is not present
+    result <- time_string
+  }
+  
+  return(result)
+}
+
+```
 
 
+## Read html and extract info 
+
+Extracts info from html for duration, ticket type, refund policy, and description. 
+
+
+```{r}
+## possibly put code here 
 ```
 
 
@@ -156,11 +230,133 @@ This function converts the
 
 This function returns all info needed for all pages of a city's events. 
 
-It includes the following functions written above: 
+```{r}
+get_event_info <- function(link) {
+  
+shared_df <- data.frame(Duration = character(), 
+                        Ticket_Type = character(),
+                        Refund_Policy = character(), 
+                        Description = character(),
+                        StartTime = character(),
+                        Currency = character(),
+                        LowPrice = numeric(),
+                        HighPrice = numeric(),
+                        EventStatus = character(),
+                        stringsAsFactors = FALSE)
 
-- 
+all_links <- get_all_event_links(link)
+
+# Loop over each link in 'test_object'
+for (i in seq_along(all_links)) {
+  
+  link <- all_links[i]
+  html <- link |> read_html()
+  
+  # Read HTML and extract duration if there is information, if not NA
+  duration <- if (html |> 
+                  xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
+                  length() == 0) {
+    NA
+  } else {
+    html |>
+      xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |>
+      xml_text() %>%
+      .[[1]]
+  }
+    
+  
+  # Extract ticket type
+  ticket_type <- if (html |> 
+    xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
+    length() == 0) {
+      "Sold out"
+    } else {
+      html |> 
+        xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
+        xml_text() %>%
+        .[[2]]
+    }
+  
+  # Extract refund policy
+  refund_policy <- if (html |> 
+    xml_find_all("//div[@class = 'Layout-module__module___2eUcs Layout-module__refundPolicy___fQ8I7']//section[@class = 'event-details__section']/div") |> 
+    length() == 0) {
+      NA
+    } else {
+      html |> 
+        xml_find_all("//div[@class = 'Layout-module__module___2eUcs Layout-module__refundPolicy___fQ8I7']//section[@class = 'event-details__section']/div") |> 
+        xml_text() %>%
+        .[[2]]
+    }
+  
+  # Extract description
+  description <- if (html |> 
+    xml_find_all("//div[@class = 'eds-text--left']//p") |> 
+    length() == 0){
+      NA
+    } else {
+      html |> 
+        xml_find_all("//div[@class = 'eds-text--left']//p") |> 
+        xml_text() |> 
+        discard(~.x == "") |> 
+        paste(collapse = " ") 
+    }
+  
+  # Extract start time
+  pre_converted_time <- pre_convert_time(html)
+  
+  starttime <- convert_time_format(pre_converted_time)
+  
+  # Add duration, ticket type, refund policy, and description to the shared data frame
+  shared_df[i, "Duration"] <- duration
+  shared_df[i, "Ticket_Type"] <- ticket_type
+  shared_df[i, "Refund_Policy"] <- refund_policy
+  shared_df[i, "Description"] <- description
+  shared_df[i, "StartTime"] <- starttime
+
+  # pull json data 
+  json <- 
+    html |> 
+    xml_find_all("//script[@type='application/ld+json']") |> 
+    pluck(1) |> 
+    xml_text()
+  json <- fromJSON(json)
+  
+  shared_df[i, "LowPrice"] <- json$offers$lowPrice[1]
+  shared_df[i, "HighPrice"] <- json$offers$highPrice[1]
+  shared_df[i, "Currency"] <- json$offers$priceCurrency[1]
+  shared_df[i, "Organizer"] <- json$organizer$name
+  shared_df[i, "EventStatus"] <- json$eventStatus
+  shared_df[i, "StartTime"] <- lubridate::as_datetime(json$startDate)
+  shared_df[i, "EndTime"] <- lubridate::as_datetime(json$endDate)
+  shared_df[i, "Title"] <- json$name
+  shared_df[i, "Subtitle"] <- json$description
+  shared_df[i, "url"] <- json$url
+  
+}
+
+return(shared_df)
+}
+```
+
+# Testing ground 
+
+Load the cities and create url for Madrid
 
 ```{r}
+load_cities_list()
+l <- create_url("madrid")
+```
 
+
+How many pages for Madrid? 
+```{r}
+count_pages(l)
+```
+
+Get all the event info
+
+```{r}
+get_event_info(l)
 ```
 
