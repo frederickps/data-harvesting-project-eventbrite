@@ -412,7 +412,9 @@ pre_converted_time <-
   gsub("(\\d{1,2})(am|pm|AM|PM)\\s", "\\1:00\\2 ", ., perl = TRUE) %>%
   gsub("(pm|am) - ", " - ", .)%>%
   gsub("(am|AM)$", "pm", .)
-#
+
+
+
 filter_list <- 
   function(list) {
     return(list[sapply(list, function(x) is.character(x) && nchar(x) > 0)])}
