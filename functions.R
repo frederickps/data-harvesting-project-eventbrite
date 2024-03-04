@@ -127,12 +127,42 @@ get_all_event_links <- function(link) {
   
 }
 
+convert_time_format <- function(time_string) {
+  # Check if "pm" or "PM" is present in the input string
+  if (str_detect(time_string, "pm|PM")) {
+    # Extract hours and minutes from the input string
+    time_parts <- str_match(time_string, "(\\d+):(\\d+) - (\\d+):(\\d+)(pm)?")
+    start_hour <- as.integer(time_parts[2])
+    start_minute <- as.integer(time_parts[3])
+    end_hour <- as.integer(time_parts[4])
+    end_minute <- as.integer(time_parts[5])
+    
+    # Convert to 24-hour format
+    if (start_hour != 12) {
+      start_hour <- start_hour + 12
+    }
+    if (end_hour != 12) {
+      end_hour <- end_hour + 12
+    }
+    
+    # Return the time string in the desired format
+    result <- sprintf("%02d:%02d - %02d:%02d", start_hour, start_minute, end_hour, end_minute)
+  } else {
+    # Return the original time string if "pm" or "PM" is not present
+    result <- time_string
+  }
+  
+  return(result)
+}
+
+
 get_event_info <- function(link) {
   
 shared_df <- data.frame(Duration = character(), 
                         Ticket_Type = character(),
                         Refund_Policy = character(), 
-                        Description = character(), 
+                        Description = character(),
+                        StartTime = character()
                         Currency = character(),
                         LowPrice = numeric(),
                         HighPrice = numeric(),
@@ -197,11 +227,45 @@ for (i in seq_along(all_links)) {
         paste(collapse = " ") 
     }
   
+  # Extract start time
+  pre_converted_time <- if (
+    html |> 
+    xml_find_all("//div[@class = 'date-info']//span") |>
+    length() == 0) {
+    NA
+  } else {
+    html |> 
+      xml_find_all("//div[@class = 'date-info']//span") |> 
+      xml_text() |>  
+      str_extract_all("\\b(?:\\d+:\\d+(?:pm|PM|am|AM)?|(?:\\d+:)?\\d+pm|\\d+PM|\\d+am|\\d+AM|\\d+ - \\d+:\\d+(?:pm|PM|am|AM)?|\\d+ - \\d+(?:pm|PM|am|AM)?)") %>%
+      .[[1]] %>%
+      paste0(collapse = " - ")  %>% 
+      {if (str_detect(., "\\b\\d{1}(?![0-9]|:)(?:pm|PM|am|AM)")) { # Matches single-digit numbers not followed by another digit or colon, followed by "pm" or "am"
+        gsub("\\b(\\d{1})(pm|PM|am|AM)", "0\\1:00\\2", .)
+      } else if (str_detect(., "\\b(\\d{1}):?")) { # Matches singular numbers followed by a colon
+        gsub("\\b(\\d{1}):", "0\\1:", .)
+      } else if (str_detect(., "\\d{1} - \\d{1}(?:pm|PM|am|AM)?")){
+        gsub("(\\d{1,2}) - (\\d{1,2})(pm|PM|am|AM)", "0\\1:00 - 0\\2:00\\3", .)
+      } else if (str_detect(., "\\d{1}(?:pm|PM|am|AM)?")){
+        if_else(str_detect(., "pm|PM"), gsub("(\\d{1})(pm|PM|am|AM)?", "0\\1:00 - 00:00pm", .), 
+                gsub("(\\d{1})(pm|PM|am|AM)?", "0\\1:00 - 00:00", .))
+      } else if (str_detect(., "\\d{1}")) {
+        gsub("(\\d{1})", "0\\1:00", .)
+      } else {
+        paste(.)
+      }
+      } %>%
+      gsub("\\b(\\d)( - |$)", "0\\1:00\\2", .)
+  }
+  
+  startime <- convert_time_format(pre_converted_time)
+  
   # Add duration, ticket type, refund policy, and description to the shared data frame
   shared_df[i, "Duration"] <- duration
   shared_df[i, "Ticket_Type"] <- ticket_type
   shared_df[i, "Refund_Policy"] <- refund_policy
   shared_df[i, "Description"] <- description
+  shared_df[i, "StartTime"] <- starttime
 
   # pull json data 
   json <- 
@@ -289,7 +353,8 @@ link <- "https://www.eventbrite.com/e/penny-lecture-james-mac-tickets-8199560395
 
 link <- "https://www.eventbrite.com/e/healing-breathwork-accelerate-emotional-and-physical-healing-bexley-tickets-820692071077?aff=ebdssbdestsearch"
 
-link |> 
+pre_converted_time <-
+  link |> 
   read_html() |> 
   xml_find_all("//div[@class = 'date-info']//span") |> 
   xml_text() |>  
@@ -312,19 +377,6 @@ link |>
   }
   } %>%
   gsub("\\b(\\d)( - |$)", "0\\1:00\\2", .)
-  
-# old regex
-str_extract_all("\\d+:\\d+(?:pm|PM|am|AM)?|(?:\\d+:)?\\d+pm|\\d+PM|\\d+am|\\d+AM|\\d+ - \\d+(?:pm|PM|am|AM)?|\\d - \\d:\\d+(?:pm|PM|am|AM)?")
-#
-str_extract_all("\\b(?:\\d+:\\d+(?:pm|PM|am|AM)?|(?:\\d+:)?\\d+pm|\\d+PM|\\d+am|\\d+AM|\\d+ - \\d+:\\d+(?:pm|PM|am|AM)?|\\d - \\d+:\\d+(?:pm|PM|am|AM)?)")
-#
-
-string <- "Monday, March 4 · 7 - 18:00pm GMT"
-string %>% 
-  str_extract_all("\\b(?:\\d+:\\d+(?:pm|PM|am|AM)?|(?:\\d+:)?\\d+pm|\\d+PM|\\d+am|\\d+AM|\\d+ - \\d+:\\d+(?:pm|PM|am|AM)?|\\d+ - \\d+(?:pm|PM|am|AM)?)")%>%
-  .[[1]] %>%
-  paste0(collapse = " - ")
-
 
 
 converted_time <- convert_time_format(pre_converted_time) |> 
@@ -360,32 +412,7 @@ convert_time_format <- function(time_string) {
   }
   
   return(result)
-
 }
-
-#
-link |> 
-  read_html() |> 
-  xml_find_all("//div[@class = 'date-info']//span") |> 
-  xml_text() |>  
-  str_extract_all("\\b(?:\\d+:\\d+(?:pm|PM|am|AM)?|(?:\\d+:)?\\d+pm|\\d+PM|\\d+am|\\d+AM|\\d+ - \\d+:\\d+(?:pm|PM|am|AM)?|\\d+ - \\d+(?:pm|PM|am|AM)?)")%>%
-  .[[1]] %>%
-  paste0(collapse = " - ")  %>% 
-  {if (str_detect(., "\\b(\\d{1}):?")) { 
-    gsub("\\b(\\d{1}):", "0\\1:", .)
-  } else if (str_detect(., "\\d{1} - \\d{1}(?:pm|PM|am|AM)?")){
-    gsub("(\\d{1,2}) - (\\d{1,2})(pm|PM|am|AM)", "0\\1:00 - 0\\2:00\\3", .)
-  } else if (str_detect(., "\\d{1}(?:pm|PM|am|AM)?")){
-    if_else(str_detect(., "pm|PM"), gsub("(\\d{1})(pm|PM|am|AM)?", "0\\1:00 - 00:00pm", .), 
-            gsub("(\\d{1})(pm|PM|am|AM)?", "0\\1:00 - 00:00", .))
-  } else if (str_detect(., "\\d{1}")) {
-    gsub("(\\d{1})", "0\\1:00", .)
-  } else {
-    paste(.)
-  }
-  } %>%
-  gsub("\\b(\\d)( - |$)", "0\\1:00\\2", .)
-
 
 # duration
 duration <-
