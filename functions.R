@@ -162,7 +162,7 @@ shared_df <- data.frame(Duration = character(),
                         Ticket_Type = character(),
                         Refund_Policy = character(), 
                         Description = character(),
-                        StartTime = character()
+                        StartTime = character(),
                         Currency = character(),
                         LowPrice = numeric(),
                         HighPrice = numeric(),
@@ -255,7 +255,9 @@ for (i in seq_along(all_links)) {
         paste(.)
       }
       } %>%
-      gsub("\\b(\\d)( - |$)", "0\\1:00\\2", .)
+      gsub("\\b(\\d)( - |$)", "0\\1:00\\2", .)%>%
+      gsub("^\\b(\\d{2}:\\d{2})(pm|am|PM|AM)$", "\\1 - 00:00\\2", .) %>%
+      gsub("^(\\d{2}:\\d{2})$", "\\1 - 00:00\\2", .)
   }
   
   startime <- convert_time_format(pre_converted_time)
@@ -376,7 +378,9 @@ pre_converted_time <-
     paste(.)
   }
   } %>%
-  gsub("\\b(\\d)( - |$)", "0\\1:00\\2", .)
+  gsub("\\b(\\d)( - |$)", "0\\1:00\\2", .)%>%
+  gsub("^\\b(\\d{2}:\\d{2})(pm|am|PM|AM)$", "\\1 - 00:00\\2", .) %>%
+  gsub("^(\\d{2}:\\d{2})$", "\\1 - 00:00\\2", .)
 
 
 converted_time <- convert_time_format(pre_converted_time) |> 
