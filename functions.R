@@ -347,22 +347,10 @@ ticket_type <- if (link |>
 }
 
 # start and end
-link <- "https://www.eventbrite.com/e/london-startup-networking-tickets-849932459867?aff=ebdssbdestsearch"
 
-link <- "https://www.eventbrite.com/e/an-evening-of-poetry-and-prose-with-mike-parker-and-hanan-issa-tickets-761231332407?aff=ebdssbdestsearch"
+link <- "https://www.eventbrite.com/e/flavours-flamenco-in-madrid-experience-pub-crawl-private-groups-registration-234374168447?aff=ebdssbdestsearch&keep_tld=1"
 
-link <- "https://www.eventbrite.com/e/penny-lecture-james-mac-tickets-819956039587?aff=ebdssbdestsearch&keep_tld=1"
-
-link <- "https://www.eventbrite.com/e/fabletics-x-she-believes-she-can-tickets-848616062487?aff=ebdssbdestsearch&keep_tld=1"
-
-link <- "https://www.eventbrite.es/e/entradas-wine-tasting-flamenco-master-class-pub-crawl-in-madridprivate-groups-638210413527?aff=ebdssbdestsearch"
-
-link <- "https://www.eventbrite.com/e/pub-crawl-madrid-tickets-518065446697?aff=ebdssbdestsearch&keep_tld=1"
-
-link <- "https://www.eventbrite.com/e/breathwork-healing-session-joy-of-breathing-alcorcon-tickets-418163035897?aff=ebdssbdestsearch"
-
-link |> 
-  read_html() |> 
+html[[13]] |> 
   xml_find_all("//div[@class = 'date-info']//span") |> 
   xml_text() %>%
   filter_list() %>%
@@ -390,9 +378,10 @@ link |>
   gsub("(?<=\\s\\d{2})(pm|am|PM|AM)\\b", ":00\\1", ., perl = TRUE)%>%
   gsub("(\\d{1,2})(am|pm|AM|PM)\\s", "\\1:00\\2 ", ., perl = TRUE) %>%
   gsub("(pm|am) - ", " - ", .)%>%
-  gsub("(am|AM)$", "pm", .)
+  gsub("(am|AM)$", "pm", .) %>%
+  gsub("^12(pm|PM)$", "12:00 - 00:00", .)
 
-#
+# Time scraper -----
 pre_converted_time <-
   link |> 
   read_html() |> 
@@ -423,7 +412,9 @@ pre_converted_time <-
   gsub("(\\d{1,2})(am|pm|AM|PM)\\s", "\\1:00\\2 ", ., perl = TRUE) %>%
   gsub("(pm|am) - ", " - ", .)%>%
   gsub("(am|AM)$", "pm", .)
-#
+
+
+
 filter_list <- 
   function(list) {
     return(list[sapply(list, function(x) is.character(x) && nchar(x) > 0)])}
@@ -431,7 +422,10 @@ filter_list <-
 # needed for return one 
 convert_time_format <- function(time_string) {
   # Check if "pm" or "PM" is present in the input string
-  if (str_detect(time_string, "pm|PM")) {
+  if (is.na(time_string)) {
+    return(NA)
+  } else {
+    if(str_detect(time_string, "pm|PM")) {
     # Extract hours and minutes from the input string
     time_parts <- str_match(time_string, "(\\d+):(\\d+) - (\\d+):(\\d+)(pm)?")
     start_hour <- as.integer(time_parts[2])
@@ -443,18 +437,21 @@ convert_time_format <- function(time_string) {
     if (start_hour != 12) {
       start_hour <- start_hour + 12
     }
-    if (end_hour != 12) {
-      end_hour <- end_hour + 12
+    
+    # Return the start time string in the desired format
+    result <- sprintf("%02d:%02d", start_hour, start_minute)
+    } else {
+      start_time <- str_match(time_string, "(\\d+):(\\d+) - (\\d+):(\\d+)")
+      start_hour <- as.integer(start_time[2])
+      start_minute <- as.integer(start_time[3])
+      
+      time_string <- sprintf("%02d:%02d", start_hour, start_minute)
+      # Return the original time string if "pm" or "PM" is not present
+      result <- time_string
     }
     
-    # Return the time string in the desired format
-    result <- sprintf("%02d:%02d - %02d:%02d", start_hour, start_minute, end_hour, end_minute)
-  } else {
-    # Return the original time string if "pm" or "PM" is not present
-    result <- time_string
+    return(result)
   }
-  
-  return(result)
 }
 
 # duration
