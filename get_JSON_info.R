@@ -28,3 +28,11 @@ json_1$endDate
 
 json_1$organizer$name
 json_1$offers
+
+json_1$eventStatus |> 
+  str_extract_all(".org/.+$") |> 
+  str_split(pattern = "/") |> 
+  pluck(1) |> 
+  pluck(2)
+
+

@@ -27,13 +27,16 @@ load_cities_list <- function() {
                          "madrid", "spain--madrid",
                          "roma", "italy--roma",
                          "london", "united-kingdom--london",
-                         "lyon", "france--lyon",
                          "paris", "france--paris",
                          "barcelona", "spain--barcelona",
-                         "torino", "italy--torino",
-                         "sevilla", "spain--sevilla",
-                         "cadiz", "spain--cádiz",
+                         "san francisco", "ca--san-francisco",
+                         "berlin", "germany--berlin",
+                         "amsterdam", "netherlands--amsterdam",
+                         "warsaw", "poland--warszawa",
+                         
   )
+  
+  return(cities_list)
 }
 ```
 
@@ -48,7 +51,7 @@ create_url <- function(city) {
   url_city <- cities_list$text[cities_list$input == city]
   
   url_root <- "https://www.eventbrite.es/d/"
-  url_suffix <- "/events--today/"
+  url_suffix <- "/events--tomorrow/"
   
   url <- paste0(url_root, url_city, url_suffix)
   
@@ -116,7 +119,7 @@ get_all_event_links <- function(link) {
   all_event_links <- c() # creates empty vector
   
   pages_count <- count_pages(link = link) # gets number of available pages at this link 
-  pages_count <- min(10, pages_count) # don't pull more than 10 pages at once
+  # pages_count <- min(10, pages_count) # don't pull more than 10 pages at once
   
   for (i in 1:pages_count) {
     
@@ -274,11 +277,15 @@ shared_df <- data.frame(Duration = character(num_links),
 
 all_links <- get_all_event_links(link)
 
+num_all_links <- length(all_links) 
+j <- 0
+
 # Loop over each link in 'test_object'
-for (i in seq_along(all_links)) {
+for (i in all_links) {
   
-  link <- all_links[i]
-  html <- link |> read_html()
+  Sys.sleep(1)
+  j <- j + 1
+  html <- i |> read_html()
   
   # Read HTML and extract duration if there is information, if not NA
   duration <- if (html |> 
@@ -333,14 +340,14 @@ for (i in seq_along(all_links)) {
   # Extract start time
   pre_converted_time <- pre_convert_time(html)
   
-  starttime <- convert_time_format(pre_converted_time)
+  # starttime <- convert_time_format(pre_converted_time)
   
   # Add duration, ticket type, refund policy, and description to the shared data frame
   shared_df[i, "Duration"] <- duration
   shared_df[i, "Ticket_Type"] <- ticket_type
   shared_df[i, "Refund_Policy"] <- refund_policy
   shared_df[i, "Description"] <- description
-  shared_df[i, "Start_Time"] <- starttime
+  # shared_df[i, "Start_Time"] <- starttime
 
   # pull json data 
   json <- 
@@ -360,7 +367,9 @@ for (i in seq_along(all_links)) {
   shared_df[i, "Title"] <- json$name
   shared_df[i, "Subtitle"] <- json$description
   shared_df[i, "url"] <- json$url
+ 
   
+  print(paste(100 * j/num_all_links, "% completed")) 
 }
 
 return(shared_df)
@@ -372,8 +381,8 @@ return(shared_df)
 Load the cities and create url for Madrid
 
 ```{r}
-load_cities_list()
-l <- create_url("madrid")
+cities.list <- load_cities_list()
+l <- create_url("warsaw")
 list <- get_all_event_links(l)
 html <- lapply(list, read_html) 
 time <- lapply(html, pre_convert_time)
@@ -393,6 +402,8 @@ count_pages(l)
 Get all the event info
 
 ```{r}
-get_event_info(l)
+df <- get_event_info(l)
+filename <- paste0("warsaw", "20240306", ".csv")
+write_csv(df, file = filename)
 ```
 
