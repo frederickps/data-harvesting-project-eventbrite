@@ -239,13 +239,13 @@ convert_time_format <- function(time_string) {
 ```
 
 
-## Read html and extract info 
+## Create dataframe 
 
 Extracts info from html for duration, ticket type, refund policy, and description. 
 
 
 ```{r}
-## possibly put code here 
+df <- data.frame()
 ```
 
 
@@ -258,22 +258,7 @@ get_event_info <- function(link) {
   
   num_links <- length(link)
   
-shared_df <- data.frame(Duration = character(num_links), 
-                        Ticket_Type = character(num_links),
-                        Refund_Policy = character(num_links), 
-                        Description = character(num_links),
-                        Start_Time = character(num_links),
-                        Currency = character(num_links),
-                        LowPrice = numeric(num_links),
-                        HighPrice = numeric(num_links),
-                        EventStatus = character(num_links),
-                        Organizer = character(num_links),
-                        StartTime = lubridate::as_datetime(character(num_links)),
-                        EndTime = lubridate::as_datetime(character(num_links)),
-                        Title = character(num_links),
-                        Subtitle = character(num_links),
-                        url = character(num_links),
-                        stringsAsFactors = FALSE)
+shared_df <- .GlobalEnv$df
 
 all_links <- get_all_event_links(link)
 
@@ -338,7 +323,7 @@ for (i in all_links) {
     }
   
   # Extract start time
-  pre_converted_time <- pre_convert_time(html)
+  # pre_converted_time <- pre_convert_time(html)
   
   # starttime <- convert_time_format(pre_converted_time)
   
@@ -364,14 +349,16 @@ for (i in all_links) {
   shared_df[i, "EventStatus"] <- json$eventStatus
   shared_df[i, "StartTime"] <- lubridate::as_datetime(json$startDate)
   shared_df[i, "EndTime"] <- lubridate::as_datetime(json$endDate)
-  shared_df[i, "Title"] <- json$name
-  shared_df[i, "Subtitle"] <- json$description
+  shared_df[i, "Title"] <- json$name |> str_replace(pattern = "\n", replacement = " ")
+  shared_df[i, "Subtitle"] <- json$description|> str_replace(pattern = "\n", replacement = " ")
   shared_df[i, "url"] <- json$url
  
+  .GlobalEnv$df <- shared_df 
   
   print(paste(100 * j/num_all_links, "% completed")) 
 }
 
+   
 return(shared_df)
 }
 ```
@@ -380,30 +367,32 @@ return(shared_df)
 
 Load the cities and create url for Madrid
 
-```{r}
+```{r }
 cities.list <- load_cities_list()
 l <- create_url("warsaw")
-list <- get_all_event_links(l)
-html <- lapply(list, read_html) 
-time <- lapply(html, pre_convert_time)
-lapply(time, convert_time_format)
+# list <- get_all_event_links(l)
+# html <- lapply(list, read_html) 
+# time <- lapply(html, pre_convert_time)
+# lapply(time, convert_time_format)
 
-list[1]
-
+# list[1]
 
 ```
 
 
 How many pages for Madrid? 
+
 ```{r}
 count_pages(l)
 ```
 
 Get all the event info
 
-```{r}
-df <- get_event_info(l)
-filename <- paste0("warsaw", "20240306", ".csv")
+We don't need to save the funciton to `df <- ...` because it will automatically do it each loop inside the function `get_event_info(l)`. 
+
+```{r write-csv}
+get_event_info(l) # don't need to save it to `df` because it will automatically do it each loop
+filename <- paste0("warsaw", "20240307", ".csv")
 write_csv(df, file = filename)
 ```
 
