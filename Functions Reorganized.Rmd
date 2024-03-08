@@ -158,7 +158,7 @@ This function returns all info needed for all pages of a city's events.
 
 get_event_info <- function(link, cityname) {
   
-  shared_df <- data.frame()
+    shared_df <- data.frame()
   
   all_links <- get_all_event_links(link)
   
@@ -166,6 +166,7 @@ get_event_info <- function(link, cityname) {
   
   num_all_links <- length(all_links) 
   j <- 0
+  
     # Loop over each link in 'test_object'
 for (i in seq_along(all_links)) {
   Sys.sleep(1)
@@ -176,6 +177,7 @@ for (i in seq_along(all_links)) {
   
   html <- event_link |> read_html()
   
+
 
 # Read HTML and extract duration if there is information, if not NA
   
@@ -192,6 +194,7 @@ for (i in seq_along(all_links)) {
   }, error = function(e) {
     shared_df[i, "Duration"] <- NA
     })
+  
   # Extract ticket type
   tryCatch({
     shared_df[i, "Ticket_Type"] <- if (html |>
@@ -298,7 +301,7 @@ for (i in seq_along(all_links)) {
       combined_df <- bind_rows(res, shared_df[i,])
       write_csv(combined_df, file_path)
     }
-  rm(res, shared_df)
+  rm(combined_df)
 }
   }
 
@@ -309,7 +312,7 @@ for (i in seq_along(all_links)) {
 Load the cities and create url for Madrid
 
 ```{r }
-l <- create_url("roma")
+l <- create_url("amsterdam")
 ```
 
 
@@ -324,7 +327,7 @@ Get all the event info
 We don't need to save the funciton to `df <- ...` because it will automatically do it each loop inside the function `get_event_info(l)`. 
 
 ```{r write-csv}
-get_event_info(l, "roma") 
+get_event_info(l, "warsaw") 
 ```
 ## Appendix
 
