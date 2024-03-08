@@ -138,6 +138,196 @@ get_all_event_links <- function(link) {
 }
 ```
 
+
+
+## Create file path 
+
+Extracts info from html for duration, ticket type, refund policy, and description. 
+
+
+```{r}
+file_path <- ""
+
+num_links <- length(link)
+```
+
+
+## Get all event info 
+
+This function returns all info needed for all pages of a city's events. 
+
+```{r}
+get_event_info <- function(link, cityname) {
+  
+shared_df <- data.frame()
+
+all_links <- get_all_event_links(link)
+
+file_path <- paste0(cityname, format(Sys.Date()+1, "%Y%m%d"),".csv")
+
+num_all_links <- length(all_links) 
+j <- 0
+
+# Loop over each link in 'test_object'
+for (i in seq_along(all_links)) {
+  
+  Sys.sleep(1)
+  j <- j + 1
+  
+  event_link <- all_links[i]
+  html <- event_link |> read_html()
+  
+  # Read HTML and extract duration if there is information, if not NA
+  tryCatch({shared_df[i, "Duration"] <- if (html |> 
+                  xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
+                  length() == 0) {
+    NA
+  } else {
+    html |>
+      xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |>
+      xml_text() %>%
+      .[[1]]
+  }
+   }, error = function(e) {
+    shared_df[i, "Duration"] <- NA
+  }) 
+  
+  # Extract ticket type
+  tryCatch({
+    shared_df[i, "Ticket_Type"] <- if (html |> 
+    xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
+    length() == 0) {
+      "Sold out"
+    } else {
+      html |> 
+        xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
+        xml_text() %>%
+        .[[2]]
+    }
+   }, error = function(e) {
+    shared_df[i, "Ticket_Type"] <- NA
+  })
+  
+  # Extract refund policy
+  tryCatch({
+    shared_df[i, "Refund_Policy"] <- if (html |> 
+    xml_find_all("//div[@class = 'Layout-module__module___2eUcs Layout-module__refundPolicy___fQ8I7']//section[@class = 'event-details__section']/div") |> 
+    length() == 0) {
+      NA
+    } else {
+      html |> 
+        xml_find_all("//div[@class = 'Layout-module__module___2eUcs Layout-module__refundPolicy___fQ8I7']//section[@class = 'event-details__section']/div") |> 
+        xml_text() %>%
+        .[[2]]
+    }
+   }, error = function(e) {
+    shared_df[i, "Refund_Policy"] <- NA
+  })
+  
+  # Extract description
+  tryCatch({
+    shared_df[i, "Description"] <- if (html |> 
+    xml_find_all("//div[@class = 'eds-text--left']//p") |> 
+    length() == 0){
+      NA
+    } else {
+      html |> 
+        xml_find_all("//div[@class = 'eds-text--left']//p") |> 
+        xml_text() |> 
+        discard(~.x == "") |> 
+        paste(collapse = " ") 
+    }
+  }, error = function(e) {
+    shared_df[i, "Description"] <- NA
+  })
+
+  # pull json data 
+  json <- 
+    html |> 
+    xml_find_all("//script[@type='application/ld+json']") |> 
+    pluck(1) |> 
+    xml_text()
+  
+    json <- fromJSON(json)
+  
+  tryCatch({shared_df[i, "LowPrice"] <- json$offers$lowPrice[1]}, 
+           error = function(e) {
+             shared_df[i, "LowPrice"] <- NA})
+  tryCatch({shared_df[i, "HighPrice"] <- json$offers$highPrice[1]}, 
+           error = function(e) {
+             shared_df[i, "HighPrice"] <- NA})
+  tryCatch({shared_df[i, "Currency"] <- json$offers$priceCurrency[1]}, 
+           error = function(e) {
+             shared_df[i, "Currency"] <- NA})
+  tryCatch({shared_df[i, "Organizer"] <- json$organizer$name}, 
+           error = function(e) {
+             shared_df[i, "Organizer"] <- NA})
+  tryCatch({shared_df[i, "EventStatus"] <- json$eventStatus}, 
+           error = function(e) {
+             shared_df[i, "EventStatus"] <- NA})
+  tryCatch({shared_df[i, "StartTime"] <- lubridate::as_datetime(json$startDate)}, 
+           error = function(e) {
+             shared_df[i, "StartTime"] <- NA})
+  tryCatch({shared_df[i, "EndTime"] <- lubridate::as_datetime(json$endDate)}, 
+           error = function(e) {
+             shared_df[i, "EndTime"] <- NA})
+  tryCatch({shared_df[i, "Title"] <- json$name}, 
+           error = function(e) {
+             shared_df[i, "Title"] <- NA})
+  tryCatch({shared_df[i, "Subtitle"] <- json$description}, 
+           error = function(e) {
+             shared_df[i, "Subtitle"] <- NA})
+  tryCatch({shared_df[i, "url"] <- json$url}, 
+           error = function(e) {
+             shared_df[i, "url"] <- NA})
+    
+  # calculating and reporting the progress of the scraper
+  print(paste(round(100 * j/num_all_links, 2), "% completed")) 
+  
+res <- try(read_csv(file_path, show_col_types = FALSE), silent = TRUE)
+  
+  if (inherits(res, "try-error")) {
+  # Save the data frame we scraped above 
+  print("File doesn't exist; Creating it")
+  write_csv(shared_df, file_path)
+} else {
+  # If the file was read successfully, append the
+  # new rows and save the file again
+  res <- bind_rows(res, shared_df) 
+  
+  write_csv(res, file_path)
+}
+
+rm(res)
+}
+
+}
+```
+
+# Testing ground 
+
+Load the cities and create url for Madrid
+
+```{r }
+l <- create_url("madrid")
+```
+
+
+How many pages for Madrid? 
+
+```{r}
+count_pages(l)
+```
+
+Get all the event info
+
+We don't need to save the funciton to `df <- ...` because it will automatically do it each loop inside the function `get_event_info(l)`. 
+
+```{r write-csv}
+get_event_info(l, "madrid") 
+```
+## Appendix
+
 ## Pre-convert time format
 
 This function takes the html of an event and prepares it for `convert_time_format()`.
@@ -236,163 +426,5 @@ convert_time_format <- function(time_string) {
   }
 }
 
-```
-
-
-## Create dataframe 
-
-Extracts info from html for duration, ticket type, refund policy, and description. 
-
-
-```{r}
-df <- data.frame()
-```
-
-
-## Get all event info 
-
-This function returns all info needed for all pages of a city's events. 
-
-```{r}
-get_event_info <- function(link) {
-  
-  num_links <- length(link)
-  
-shared_df <- .GlobalEnv$df
-
-all_links <- get_all_event_links(link)
-
-num_all_links <- length(all_links) 
-j <- 0
-
-# Loop over each link in 'test_object'
-for (i in all_links) {
-  
-  Sys.sleep(1)
-  j <- j + 1
-  html <- i |> read_html()
-  
-  # Read HTML and extract duration if there is information, if not NA
-  duration <- if (html |> 
-                  xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
-                  length() == 0) {
-    NA
-  } else {
-    html |>
-      xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |>
-      xml_text() %>%
-      .[[1]]
-  }
-    
-  
-  # Extract ticket type
-  ticket_type <- if (html |> 
-    xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
-    length() == 0) {
-      "Sold out"
-    } else {
-      html |> 
-        xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |> 
-        xml_text() %>%
-        .[[2]]
-    }
-  
-  # Extract refund policy
-  refund_policy <- if (html |> 
-    xml_find_all("//div[@class = 'Layout-module__module___2eUcs Layout-module__refundPolicy___fQ8I7']//section[@class = 'event-details__section']/div") |> 
-    length() == 0) {
-      NA
-    } else {
-      html |> 
-        xml_find_all("//div[@class = 'Layout-module__module___2eUcs Layout-module__refundPolicy___fQ8I7']//section[@class = 'event-details__section']/div") |> 
-        xml_text() %>%
-        .[[2]]
-    }
-  
-  # Extract description
-  description <- if (html |> 
-    xml_find_all("//div[@class = 'eds-text--left']//p") |> 
-    length() == 0){
-      NA
-    } else {
-      html |> 
-        xml_find_all("//div[@class = 'eds-text--left']//p") |> 
-        xml_text() |> 
-        discard(~.x == "") |> 
-        paste(collapse = " ") 
-    }
-  
-  # Extract start time
-  # pre_converted_time <- pre_convert_time(html)
-  
-  # starttime <- convert_time_format(pre_converted_time)
-  
-  # Add duration, ticket type, refund policy, and description to the shared data frame
-  shared_df[i, "Duration"] <- duration
-  shared_df[i, "Ticket_Type"] <- ticket_type
-  shared_df[i, "Refund_Policy"] <- refund_policy
-  shared_df[i, "Description"] <- description
-  # shared_df[i, "Start_Time"] <- starttime
-
-  # pull json data 
-  json <- 
-    html |> 
-    xml_find_all("//script[@type='application/ld+json']") |> 
-    pluck(1) |> 
-    xml_text()
-  json <- fromJSON(json)
-  
-  shared_df[i, "LowPrice"] <- json$offers$lowPrice[1]
-  shared_df[i, "HighPrice"] <- json$offers$highPrice[1]
-  shared_df[i, "Currency"] <- json$offers$priceCurrency[1]
-  shared_df[i, "Organizer"] <- json$organizer$name
-  shared_df[i, "EventStatus"] <- json$eventStatus
-  shared_df[i, "StartTime"] <- lubridate::as_datetime(json$startDate)
-  shared_df[i, "EndTime"] <- lubridate::as_datetime(json$endDate)
-  shared_df[i, "Title"] <- json$name |> str_replace(pattern = "\n", replacement = " ")
-  shared_df[i, "Subtitle"] <- json$description|> str_replace(pattern = "\n", replacement = " ")
-  shared_df[i, "url"] <- json$url
- 
-  .GlobalEnv$df <- shared_df 
-  
-  print(paste(100 * j/num_all_links, "% completed")) 
-}
-
-   
-return(shared_df)
-}
-```
-
-# Testing ground 
-
-Load the cities and create url for Madrid
-
-```{r }
-cities.list <- load_cities_list()
-l <- create_url("warsaw")
-# list <- get_all_event_links(l)
-# html <- lapply(list, read_html) 
-# time <- lapply(html, pre_convert_time)
-# lapply(time, convert_time_format)
-
-# list[1]
-
-```
-
-
-How many pages for Madrid? 
-
-```{r}
-count_pages(l)
-```
-
-Get all the event info
-
-We don't need to save the funciton to `df <- ...` because it will automatically do it each loop inside the function `get_event_info(l)`. 
-
-```{r write-csv}
-get_event_info(l) # don't need to save it to `df` because it will automatically do it each loop
-filename <- paste0("warsaw", "20240307", ".csv")
-write_csv(df, file = filename)
 ```
 
