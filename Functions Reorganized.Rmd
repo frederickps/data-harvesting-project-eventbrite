@@ -45,6 +45,14 @@ load_cities_list <- function() {
                          "cadiz", "spain--cádiz", 
                          "granada", "spain--granada", 
                          "valladolid", "spain--valladolid",
+                         "santiago", "chile--santiago",
+                         "buenos aires", "argentina--buenos-aires",
+                         "sydney", "australia--sydney",
+                         "lima", "peru--lima",
+                         "glasgow", "united-kingdom--glasgow",
+                         "dublin", "ireland--dublin",
+                         "lisbon", "portugal--lisboa"
+                         
   )
   
   return(cities_list)
