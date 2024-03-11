@@ -33,7 +33,18 @@ load_cities_list <- function() {
                          "berlin", "germany--berlin",
                          "amsterdam", "netherlands--amsterdam",
                          "warsaw", "poland--warszawa",
-                         
+                         "lyon", "france--lyon", 
+                         "marseille", "france--marseille", 
+                         "sevilla", "spain--sevilla", 
+                         "vigo", "spain--vigo", 
+                         "malaga", "spain--malaga", 
+                         "zaragoza", "spain--zaragoza", 
+                         "marbella", "spain-marbella", 
+                         "bilbao", "spain--bilbao", 
+                         "san sebastian", "spain--donostia-san-sebastián", 
+                         "cadiz", "spain--cádiz", 
+                         "granada", "spain--granada", 
+                         "valladolid", "spain--valladolid",
   )
   
   return(cities_list)
@@ -251,7 +262,9 @@ for (i in seq_along(all_links)) {
     pluck(1) |>
     xml_text()
   
-  json <- fromJSON(json)
+  tryCatch({json <- fromJSON(json)},
+         error = function(e) {
+           json <- NA})
   
   tryCatch({shared_df[i, "LowPrice"] <- json$offers$lowPrice[1]},
            error = function(e) {
@@ -301,7 +314,7 @@ for (i in seq_along(all_links)) {
       combined_df <- bind_rows(res, shared_df[i,])
       write_csv(combined_df, file_path)
     }
-  rm(combined_df)
+  rm(res)
 }
   }
 
@@ -312,7 +325,7 @@ for (i in seq_along(all_links)) {
 Load the cities and create url for Madrid
 
 ```{r }
-l <- create_url("amsterdam")
+l <- create_url("london")
 ```
 
 
@@ -327,7 +340,7 @@ Get all the event info
 We don't need to save the funciton to `df <- ...` because it will automatically do it each loop inside the function `get_event_info(l)`. 
 
 ```{r write-csv}
-get_event_info(l, "warsaw") 
+get_event_info(l, "london") 
 ```
 ## Appendix
 
