@@ -23,7 +23,7 @@ library(forcats)
 
 ## Load cities
 
-Currently includes Madrid, Rome, London, Lyon, Paris, Barcelona, Torino, Sevilla, and Cádiz.
+Here are the cities with the formatting already saved. Run the function `create_url` (below) with one of the cities here to get the url. Feel free to add more cities. 
 
 ```{r}
 load_cities_list <- function() {
@@ -66,15 +66,20 @@ load_cities_list <- function() {
 
 ## Create URL
 
+We created this function so that you don't have to manually enter or copy/paste the url from your browser for the cities above. 
+
+Currently, this function will return the events page for tomorrow's events, but you can change that in the code below. 
+
 ```{r}
 create_url <- function(city) {
   
   cities_list <- load_cities_list()  # loading city list into function
   
-  url_city <- cities_list$text[cities_list$input == city]
+  url_city <- cities_list$text[cities_list$input == city] # returns the city name in Eventbrite's url format 
   
   url_root <- "https://www.eventbrite.es/d/"
-  url_suffix <- "/events--tomorrow/"
+  url_suffix <- "/events--tomorrow/" # you can change this to `/events_today/`
+  # url_suffix <- "/events--today/" 
   
   url <- paste0(url_root, url_city, url_suffix)
   
@@ -83,6 +88,8 @@ create_url <- function(city) {
 ```
 
 ## Count pages
+
+This function counts the number of pages corresponding to this city's events for tomorrow. It is useful for estimating the number of events. We also used the resulting value for looping through pages. The page number can be found in the url, which makes it easy to scrape each page. 
 
 ```{r}
 count_pages <- function(link){
@@ -101,9 +108,7 @@ count_pages <- function(link){
 
 ## Get event links
 
-> not really needed now that we have get all links
-
-This function returns all the links for one page, given in the arguement.
+This function returns all the links for one page, given in the argument. 
 
 ```{r}
 get_event_links <- function(link, page_num) {
@@ -157,15 +162,13 @@ get_all_event_links <- function(link) {
 
 ## Create file path
 
-Extracts info from html for duration, ticket type, refund policy, and description.
-
 ```{r}
 file_path <- ""
 ```
 
 ## Get all event info
 
-This function returns all info needed for all pages of a city's events.
+This function saves all info needed for all pages of a city's events into a dataframe and exports to a CSV file. 
 
 ```{r}
 
@@ -337,8 +340,6 @@ count_pages(l)
 ```
 
 Get all the event info
-
-We don't need to save the funciton to `df <- ...` because it will automatically do it each loop inside the function `get_event_info(l)`.
 
 ```{r write-csv, eval=FALSE}
 get_event_info(l, "san sebastian") 
