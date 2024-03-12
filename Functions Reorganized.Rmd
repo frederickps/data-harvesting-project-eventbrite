@@ -12,13 +12,18 @@ library(tidyverse)
 library(rvest)
 library(xml2)
 library(jsonlite)
+
+# Analysis
+library(tm)
+library(tidytext)
+library(forcats)
 ```
 
-# Functions 
+# Functions
 
-## Load cities 
+## Load cities
 
-Currently includes Madrid, Rome, London, Lyon, Paris, Barcelona, Torino, Sevilla, and Cádiz. 
+Currently includes Madrid, Rome, London, Lyon, Paris, Barcelona, Torino, Sevilla, and Cádiz.
 
 ```{r}
 load_cities_list <- function() {
@@ -59,8 +64,7 @@ load_cities_list <- function() {
 }
 ```
 
-
-## Create URL 
+## Create URL
 
 ```{r}
 create_url <- function(city) {
@@ -70,7 +74,7 @@ create_url <- function(city) {
   url_city <- cities_list$text[cities_list$input == city]
   
   url_root <- "https://www.eventbrite.es/d/"
-  url_suffix <- "/events--tomorrow/"
+  url_suffix <- "/events--today/"
   
   url <- paste0(url_root, url_city, url_suffix)
   
@@ -78,8 +82,7 @@ create_url <- function(city) {
 }
 ```
 
-
-## Count pages 
+## Count pages
 
 ```{r}
 count_pages <- function(link){
@@ -96,16 +99,11 @@ count_pages <- function(link){
 }
 ```
 
+## Get event links
 
-### Get event titles 
-> not really needed now that we have get all links 
+> not really needed now that we have get all links
 
-### Get all titles 
-> not really needed now that we have get all links 
-
-## Get event links 
-
-This function returns all the links for one page, given in the arguement. 
+This function returns all the links for one page, given in the arguement.
 
 ```{r}
 get_event_links <- function(link, page_num) {
@@ -117,20 +115,20 @@ get_event_links <- function(link, page_num) {
     xml_find_all("//section[@class='event-card-details']//div[@class='Stack_root__1ksk7']//a") |> 
     xml_attr("href")
   
-  # remove the repeating titles 
+  # remove the repeating links 
   links <- unique(html_link)
   
   return(links)
 }
 ```
 
-## Get all event links 
+## Get all event links
 
-This function returns all the event links for all pages for a city. 
+This function returns all the event links for all pages for a city.
 
-Includes `count_pages()` and `get_event_links()`. 
+Includes `count_pages()` and `get_event_links()`.
 
-Also includes `Sys.sleep(2)`. 
+Also includes `Sys.sleep(2)`.
 
 ```{r}
 get_all_event_links <- function(link) {
@@ -157,21 +155,17 @@ get_all_event_links <- function(link) {
 }
 ```
 
+## Create file path
 
-
-## Create file path 
-
-Extracts info from html for duration, ticket type, refund policy, and description. 
-
+Extracts info from html for duration, ticket type, refund policy, and description.
 
 ```{r}
 file_path <- ""
 ```
 
+## Get all event info
 
-## Get all event info 
-
-This function returns all info needed for all pages of a city's events. 
+This function returns all info needed for all pages of a city's events.
 
 ```{r}
 
@@ -328,16 +322,15 @@ for (i in seq_along(all_links)) {
 
 ```
 
-# Testing ground 
+## Testing ground
 
 Load the cities and create url for Madrid
 
 ```{r }
-l <- create_url("london")
+l <- create_url("san sebastian")
 ```
 
-
-How many pages for Madrid? 
+How many pages for Madrid?
 
 ```{r}
 count_pages(l)
@@ -345,28 +338,330 @@ count_pages(l)
 
 Get all the event info
 
-We don't need to save the funciton to `df <- ...` because it will automatically do it each loop inside the function `get_event_info(l)`. 
+We don't need to save the funciton to `df <- ...` because it will automatically do it each loop inside the function `get_event_info(l)`.
 
-```{r write-csv}
-get_event_info(l, "london") 
+```{r write-csv, eval=FALSE}
+get_event_info(l, "san sebastian") 
 ```
+
+## Analysis
+
+We already gathered information on multiple cities on multiple days. You can find all separate in the folder data in our repository. Subsequently, we will show you a couple of possibilities to play with the data and get a sense of. Of course, results highly depend on which cities you decide to scrape, but that is the whole idea, isn't it?
+
+
+### Reading in the data
+
+As each city-date data is stored in a separate csv file,the first challenge is to read and combine every data frame to create one single data frame. To do that with the least possible effort, we create a list of all csv files in our data folder and loop through each one of them creating a list containing all data frames. Using `bind_rows()` we create a single coherent data frame of all data frames stored in that list.
+
+```{r reading data}
+# Setting the directory path where csv files are located
+folder_path <- "data"
+
+# Getting a list of csv files in the folder
+csv_files <- list.files(folder_path, pattern = "\\.csv$", full.names = TRUE)
+
+# Initializing an empty list to store data frames
+all_data <- list()
+
+# Looping through each csv file and read it into a data frame
+for (file in csv_files) {
+
+  data <- read.csv(file)
+  
+  # Append the data frame to the list
+  all_data[[length(all_data) + 1]] <- data
+}
+
+# Combine all data frames into a single object
+combined_data <- bind_rows(all_data)
+```
+
+
+### Average number of daily events
+
+First, we are interested in how many events per day Eventbrite offers for each city. For that we calculate the average number of rows (events) per day and date. The results are plotted below.
+
+[Interpretation]
+
+```{r avg number events}
+combined_data$Date <- as.Date(combined_data$StartTime)
+
+average_n_events <- 
+  combined_data |> 
+  group_by(City, Date)  |> 
+  summarise(daily_events = n())  |> 
+  group_by(City)  |> 
+  summarise(average_daily_events = mean(daily_events))
+
+ggplot(average_n_events, aes(x = City, y = average_daily_events)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+  labs(title = "Average Daily Events per City",
+       x = "City",
+       y = "Average Daily Events") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### What are the events about?
+
+While the average number of events may be interesting in terms of pure offering, one might want to know the thematic focus of events in a given city.
+
+We develop two analysis strategies to infer the main thematic focus of events in each given city by analysing the titles and the descriptions respectively.
+
+First, we estimate the term frequency by city, providing information which words and thereby topics appear most often in the tiles and descriptions.
+
+Then, we determine the TF-IDF for each city for the titles and descriptions. The TF-IDF allows us to draw conclusions about the most unique events in a given city.
+
+#### Title
+
+Starting off with the title, we first tokenize the title text of our main data frame, filtering it by stopwords from different languages, the city name itself and digits. Then, we estimate the term frequency for each city.
+
+```{r title tokenization}
+# getting stop words for English, Spanish, German, and Dutch
+stopwords_en <- stopwords("en")
+stopwords_es <- stopwords("es")
+stopwords_de <- stopwords("de")
+stopwords_nl <- stopwords("nl")
+stopwords_fr <- stopwords("fr")
+stopwords_it <- stopwords("it")
+stopwords_pt <- stopwords("pt")
+
+# combining stop words in all languages in one list
+all_stopwords <- c(stopwords_en, stopwords_es, stopwords_de, stopwords_nl, stopwords_fr, stopwords_it, stopwords_pt)
+
+# unnesting tokens to prepare for analysis
+term_freq_title <-
+  combined_data |> 
+  unnest_tokens(word, Title) |> 
+  count(City, word, sort = TRUE)|> 
+  filter(!word %in% all_stopwords) |> # filtering out all stop words
+  filter(!word %in% City)|> # filtering out the city name itself
+  filter(!grepl("^\\d+$", word)) # filtering out any singular numbers
+
+# summing the total number of words by city and joining with term frequency data frame
+total_words_title <- term_freq_title |>  
+  group_by(City) |> 
+  summarize(total = sum(n))
+term_freq_title <- left_join(term_freq_title, total_words_title)
+
+# calculating term frequency
+term_freq_title <- term_freq_title |> 
+  mutate(term_frequency = n/total)
+```
+
+To visualize our results we only choose the 10 most frequent words per city. 
+
+[Interpretation]
+
+```{r}
+top_terms_title <- 
+  term_freq_title |> 
+  group_by(City) |> 
+  arrange(desc(term_frequency), desc(nchar(word))) |> # if multiple words with same tf, then choose longest one
+  slice(1:10) |>   # Select the top 10 terms
+  ungroup()
+
+ggplot(top_terms_title, aes(term_frequency, word, fill = City)) +
+  # Create the bars
+  geom_bar(position = "dodge", stat = "identity") +
+  # Plot settings
+  theme(legend.position = "none") + 
+  facet_wrap(~City, scales = "free_y") +
+  labs(title = "Term Frequency of Event Titles",
+       x = "",
+       y = "")
+```
+
+To determine the uniqueness of cities concerning their offered events, we calculate the TF-IDF. 
+
+[Interpretation]
+
+```{r}
+# calculating tf-idf
+title_tf_idf <- 
+  term_freq_title |> 
+  bind_tf_idf(word, City, n) |> 
+  select(-total)
+
+# Plotting the 5 words with highest TF-IDF per city
+title_tf_idf |> 
+  group_by(City) |> 
+  slice_max(tf_idf, n = 5) |> 
+  ungroup() |> 
+  ggplot(aes(tf_idf, fct_reorder(word, tf_idf), fill = City)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~City, ncol = 2, scales = "free") +
+  labs(x = "tf-idf", y = NULL)
+```
+
+```{r}
+
+```
+
+#### Description
+
+We now do the same for the event description to verify our results.
+
+```{r, echo=FALSE}
+# unnesting tokens to prepare for analysis
+term_freq_description <-
+  combined_data |> 
+  unnest_tokens(word, Description) |> 
+  count(City, word, sort = TRUE)|> 
+  filter(!word %in% all_stopwords) |> # filtering out all stop words
+  filter(!word %in% City)|> # filtering out the city name itself
+  filter(!grepl("^\\d+$", word)) # filtering out any singular numbers
+
+# summing the total number of words by city and joining with term frequency data frame
+total_words_description <- term_freq_description |>  
+  group_by(City) |> 
+  summarize(total = sum(n))
+term_freq_description <- left_join(term_freq_description, total_words_description)
+
+# estim
+term_freq_description <- term_freq_description |> 
+  mutate(term_frequency = n/total)
+
+top_terms_description <- 
+  term_freq_description |> 
+  group_by(City) |> 
+  arrange(desc(term_frequency), desc(nchar(word))) |> 
+  slice(1:10) |>   # Select the top 5 terms
+  ungroup()
+```
+
+[Interpretation]
+
+```{r, echo=FALSE}
+ggplot(top_terms_description, aes(term_frequency, word, fill = City)) +
+  # Create the bars
+  geom_bar(position = "dodge", stat = "identity") +
+  # Plot settings
+  theme(legend.position = "none") + 
+  facet_wrap(~City, scales = "free_y")
+```
+
+[Interpretation]
+
+```{r, echo=FALSE}
+# calculating tf-idf
+description_tf_idf <- 
+  term_freq_description |> 
+  bind_tf_idf(word, City, n) |> 
+  select(-total)
+
+description_tf_idf %>%
+  group_by(City) %>%
+  #choose maximum number of words
+  slice_max(tf_idf, n = 5) %>%
+  ungroup() %>%
+  ggplot(aes(tf_idf, fct_reorder(word, tf_idf), fill = City)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~City, ncol = 2, scales = "free") +
+  labs(x = "tf-idf", y = NULL)
+```
+
+
+### What does it cost?
+
+Lastly, of course, it is also about the money. For that, we calculate the average price of an event per city in Euros. Because different countries, of course, use different currencies, we first standardize our prizes by writing a short price converter function and applying it to both prices we scraped. `LowPrice` refers to the lowest price an event can be accessed. Often, event organizers increase prices as time goes on and/or demand increases. `HighPrice` then captures the final, and highest price an event may be accessed.
+
+```{r}
+# Exchange rates (12.03.2024)
+exchange_rates <- data.frame(
+  Currency = c("USD", "GBP", "EUR", "ARS", "SGD", "CAD", "CHF", "AUD", "NZD", "PLN"),  # Currency codes
+  Exchange_Rate = c(0.91, 1.17, 0, 0.0011, 0.69, 0.68, 1.04, 0.60, 0.56, 0.23)  # Corresponding exchange rates to Euros
+)
+
+# Merging exchange rate data with combined_data based on the Currency column
+combined_data <- merge(combined_data, exchange_rates, by = "Currency", all.x = TRUE)
+
+convert_to_euros <- function(price, currency, exchange_rate) {
+  if (is.na(currency)) {
+    return(NA)  # Return NA if the currency is missing
+  } else if (currency == "EUR") {
+    return(price)  # If the currency is already EUR, return the price as it is
+  } else {
+    return(price * exchange_rate)  # Convert price to Euros using the exchange rate
+  }
+}
+
+# Adding the converted prices to the main dataframe
+combined_data$Low_Price_Euros <- mapply(convert_to_euros, combined_data$LowPrice, combined_data$Currency, 
+                                    combined_data$Exchange_Rate)
+combined_data$High_Price_Euros <- mapply(convert_to_euros, combined_data$HighPrice, combined_data$Currency, 
+                                    combined_data$Exchange_Rate)
+```
+
+Having created this standardized price per event in Euros, we calculate and plot the average low and high price per city.
+
+Concerning the former, [Interpretation]
+
+```{r}
+average_low_price <- 
+  combined_data |> 
+  drop_na(LowPrice) |> 
+  group_by(City)  |> 
+  summarise(average_price = mean(Low_Price_Euros))
+
+ggplot(average_low_price, aes(x = City, y = average_price)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+  geom_text(aes(label = paste0(round(average_price, 2), "€")), 
+            vjust = -0.5, size = 2) +  
+  labs(title = "Average Low Price per Event per City",
+       x = "City",
+       y = "") +
+  scale_y_continuous(labels = function(x) paste0(x, "€")) +  
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+[Interpretation]
+
+```{r}
+average_high_price <- 
+  combined_data |> 
+  drop_na(HighPrice) |> 
+  group_by(City)  |> 
+  summarise(average_price = mean(High_Price_Euros))
+
+ggplot(average_high_price, aes(x = City, y = average_price)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+  geom_text(aes(label = paste0(round(average_price, 2), "€")), 
+            vjust = -0.5, size = 2) +  
+  labs(title = "Average High Price per Event per City",
+       x = "City",
+       y = "") +
+  scale_y_continuous(labels = function(x) paste0(x, "€")) +  
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
 ## Appendix
 
-## Pre-convert time format
+We discovered some problems with the time an event starts, as event start and end times in other time zones are reported in our time zone when scraping the JSON information as we do. As such, we do not conduct an analysis on the start and end times of events in different cities. 
+
+To circumvent this problem, we started working on a rather complex function based on regex', which scrapes the event time in the HTML and then tries to standadize it. The functions work, but maybe needs some fine tuning and could be made more legible, which is why we have not included it. 
+
+The basic idea of the functions is the following:
+
+We scrape the time information from the HTML and standardize it, because different events use different time encodings and for each time encoding very different formats.
+
+`pre_convert_time()` scrapes the HTML for the time information and then returns it in a standardized format: dd:dd - dd:dd. The format may end in am or pm, which is important for the following function.
+
+`convert_time_format()` then takes that output and returns, based of the input string, the start time for each event in military time (dd:dd). This is done, by adding 12 to each input time string that ends with pm. It then returns only the former time (start time) as for many events the organizer only provides the start time in military time.
+
+### Pre-convert time format
 
 This function takes the html of an event and prepares it for `convert_time_format()`.
 
-### Filter list
-
-To ensure that 
-```{r}
+```{r, eval=FALSE}
 filter_list <- 
   function(list) {
   return(list[sapply(list, function(x) is.character(x) && nchar(x) > 0)])}
 ```
 
-
-```{r}
+```{r, eval=FALSE}
 pre_convert_time <- function (html) {if (
     html |> 
     xml_find_all("//div[@class = 'date-info']//span") |>
@@ -410,12 +705,11 @@ pre_convert_time <- function (html) {if (
 }
 ```
 
+### Convert time format
 
-## Convert time format 
+This function converts a time string into a format usable for the final data table.
 
-This function converts a time string into a format usable for the final data table. 
-
-```{r}
+```{r, eval=TRUE}
 convert_time_format <- function(time_string) {
   # Check if "pm" or "PM" is present in the input string
   if (is.na(time_string)) {
@@ -451,4 +745,3 @@ convert_time_format <- function(time_string) {
 }
 
 ```
-
