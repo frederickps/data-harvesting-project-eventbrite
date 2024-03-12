@@ -4,6 +4,12 @@
 ![Static Badge](https://img.shields.io/badge/R_code-%23276DC3?logo=R&labelColor=white&logoColor=%23276DC3)
 ![Static Badge](https://img.shields.io/badge/HTML-grey?logo=htmx&logoColor=gray&labelColor=white)
 
+## At a glance
+
+This is a robust scraper for the event-ticket website eventbrite.es. The functions allow you to plug in a city name and generate a .csv file with all events from the previously specified date. The 'date' folder contains sample data that we have scraped, while the .rmd file contains all functions and code to read all data into one single data frame in R.
+
+Note: This scraper should only be used out of personal curiosity and should not be employed in any way beyond that. The scraper was built as part of a university project.
+
 ## Get familiar with Eventbrite url & html 
 
 The Eventbrite url is formatted so that you can select the city you want. You can also select the date of events and page number. Some cities have over 100 pages of events, with each page having 20 events. 
