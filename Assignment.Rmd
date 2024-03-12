@@ -1,8 +1,0 @@
----
-title: "Assignment"
-author: "Eric Hausken and Frederick Pena Sims"
-date: "`r Sys.Date()`"
-output: html_document
----
-
-test -eric 
