@@ -46,7 +46,7 @@ We created a function `load_cities_list()` so that you can get the correct forma
  * Buenos Aires 🇦🇷
  * Lima 🇵🇪
 
-The list currently includes 15 countries from four continents (Europe, N.America, S.America, Australia) 
+The list currently includes 15 countries from four continents (Europe, N.America, S.America, Australia). Of course, you may add more cities at your pleasure following our example.
 
 ## Functions available: 
 
