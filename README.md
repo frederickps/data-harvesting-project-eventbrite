@@ -3,12 +3,11 @@
 
 ![Static Badge](https://img.shields.io/badge/R_code-%23276DC3?logo=R&labelColor=white&logoColor=%23276DC3)
 ![Static Badge](https://img.shields.io/badge/HTML-grey?logo=htmx&logoColor=gray&labelColor=white)
+![Static Badge](https://img.shields.io/badge/JSON-grey?logo=htmx&logoColor=gray&labelColor=white)
 
 ## At a glance
 
 This is a robust scraper for the event-ticket website eventbrite.es. The functions allow you to plug in a city name and generate a .csv file with all events from the previously specified date. The 'date' folder contains sample data that we have scraped, while the .rmd file contains all functions and code to read all data into one single data frame in R.
-
-Note: This scraper should only be used out of personal curiosity and should not be employed in any way beyond that. The scraper was built as part of a university project.
 
 ## Get familiar with Eventbrite url & html 
 
@@ -47,6 +46,18 @@ We created a function `load_cities_list()` so that you can get the correct forma
  * Lima 🇵🇪
 
 The list currently includes 15 countries from four continents (Europe, N.America, S.America, Australia). Of course, you may add more cities at your pleasure following our example.
+
+### Required packages
+
+```
+library(tidyverse)
+library(rvest)
+library(xml2)
+library(jsonlite)
+library(tm)
+library(tidytext)
+library(forcats)
+```
 
 ## Functions available: 
 
@@ -88,5 +99,7 @@ Currently, the dataframe includes the following info:
 * url
 * city
 
-  
+## Disclaimer 🛑 
+
+This project was built with the academic purpose of practicing data harvesting techniques. We have not and will not use this project for commercial purposes. We do not condone anyone using this code for commercial purposes. Our intention of sharing this repository is to showcase our skills. 
 
