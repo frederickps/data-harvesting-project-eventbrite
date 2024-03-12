@@ -88,5 +88,7 @@ Currently, the dataframe includes the following info:
 * url
 * city
 
-  
+## Disclaimer 🛑 
+
+This project was built with the academic purpose of practicing data harvesting techniques. We have not and will not use this project for commercial purposes. We do not condone anyone using this code for commercial purposes. Our intention of sharing this repository is to showcase our skills. 
 
