@@ -74,7 +74,7 @@ create_url <- function(city) {
   url_city <- cities_list$text[cities_list$input == city]
   
   url_root <- "https://www.eventbrite.es/d/"
-  url_suffix <- "/events--today/"
+  url_suffix <- "/events--tomorrow/"
   
   url <- paste0(url_root, url_city, url_suffix)
   
