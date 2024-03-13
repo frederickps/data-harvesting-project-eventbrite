@@ -1,6 +1,6 @@
 ---
-title: "Functions"
-author: "Eric, Frederic"
+title: "Building a robust scraper for Eventbrite"
+author: "Eric Hausken &Frederick Pena Sims"
 date: "`r Sys.Date()`"
 output: html_document
 ---
@@ -12,6 +12,7 @@ library(tidyverse)
 library(rvest)
 library(xml2)
 library(jsonlite)
+library(httr)
 
 # Analysis
 library(tm)
@@ -19,11 +20,25 @@ library(tidytext)
 library(forcats)
 ```
 
-# Functions
+## Scraping Eventbrite
+
+For our project, we decided to build a robust scraper for Eventbrite based on a chosen location.
+
+Subsequently, we present and explain the structure of our scraper and finish with an analysis showing the potential analytical usage our scraper holds.
+
+## Set User Agent
+
+Before you start, be a nice scraper and set your user agent. If you don't know, [Google](https://www.google.com/search?q=what+is+my+user+agent&oq=what+is+my+user&gs_lcrp=EgZjaHJvbWUqBwgBEAAYgAQyBggAEEUYOTIHCAEQABiABDIHCAIQABiABDIICAMQABgWGB4yCAgEEAAYFhgeMggIBRAAGBYYHjIICAYQABgWGB4yCAgHEAAYFhgeMggICBAAGBYYHjIICAkQABgWGB7SAQg0Nzc5ajBqN6gCALACAA&sourceid=chrome&ie=UTF-8) will help you.
+
+```{r}
+set_config(user_agent(""))
+
+#set_config(user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"))
+```
 
 ## Load cities
 
-Here are the cities with the formatting already saved. Run the function `create_url` (below) with one of the cities here to get the url. Feel free to add more cities. 
+Here, cities are matched with their url formatting on the Eventbrite website. When running the function `create_url` (below) with one of the city names, the 'text' is inserted into the url generating a shortcut to generate each city's correct url. Feel free to add more cities.
 
 ```{r}
 load_cities_list <- function() {
@@ -66,9 +81,11 @@ load_cities_list <- function() {
 
 ## Create URL
 
-We created this function so that you don't have to manually enter or copy/paste the url from your browser for the cities above. 
+As explained above, we created this function so that you don't have to manually enter or copy/paste the url from your browser for the cities above.
 
-Currently, this function will return the events page for tomorrow's events, but you can change that in the code below. 
+The function extracts the string stored in the text column of the cities_list object, which is a data frame containing the input and the url-ready text fragment we created in `load_cities_list`. The extraction is conditioned by the 'input' matching the city name with its url counter-part. Finally, the final url is created and can be stored in an object for further usage.
+
+Currently, this function will return the events page for tomorrow's events, but you can change that in the code below. E.g. insert 'today' instead of 'tomorrow' for today's events.
 
 ```{r}
 create_url <- function(city) {
@@ -89,7 +106,11 @@ create_url <- function(city) {
 
 ## Count pages
 
-This function counts the number of pages corresponding to this city's events for tomorrow. It is useful for estimating the number of events. We also used the resulting value for looping through pages. The page number can be found in the url, which makes it easy to scrape each page. 
+This function counts the number of pages corresponding to the city's events for tomorrow. It scrapes the website for the maximum page number indicated towards the bottom of the page.
+
+It helps estimating the time the scraper will take as it is useful for estimating the number of events. As a rule of thumb, the number of pages can be multiplied by 20, as each page (besides the last) contains 20 events.
+
+We also used the resulting value for looping through pages. As the page number can be found in the url, disinguishing each website, it is easy to scrape each page separately.
 
 ```{r}
 count_pages <- function(link){
@@ -108,7 +129,9 @@ count_pages <- function(link){
 
 ## Get event links
 
-This function returns all the links for one page, given in the argument. 
+This function returns all the links for one page, given in the argument.
+
+It appends the page number to the original link and then scrapes all links to each individual event website. This then returns up to 20 individual links, storing it in a list.
 
 ```{r}
 get_event_links <- function(link, page_num) {
@@ -120,7 +143,7 @@ get_event_links <- function(link, page_num) {
     xml_find_all("//section[@class='event-card-details']//div[@class='Stack_root__1ksk7']//a") |> 
     xml_attr("href")
   
-  # remove the repeating links 
+  # remove the repeating links that are automatically scraped
   links <- unique(html_link)
   
   return(links)
@@ -129,11 +152,9 @@ get_event_links <- function(link, page_num) {
 
 ## Get all event links
 
-This function returns all the event links for all pages for a city.
+This function returns all the event links for all pages for a city. It includes `count_pages()` and `get_event_links()`. It first gets the number of available pages, which is then fed into a loop. It loops from page 1 to the maximum number (the number of available pages) through the `get_event_links()` function, appending the links to the created all_event_links list. This list is then filtered for repeating links and NA values.
 
-Includes `count_pages()` and `get_event_links()`.
-
-Also includes `Sys.sleep(2)`.
+The loop includes `Sys.sleep(2)`, to minimize suspicious behavior of our scraper.
 
 ```{r}
 get_all_event_links <- function(link) {
@@ -160,18 +181,25 @@ get_all_event_links <- function(link) {
 }
 ```
 
-## Create file path
-
-```{r}
-file_path <- ""
-```
-
 ## Get all event info
 
-This function saves all info needed for all pages of a city's events into a dataframe and exports to a CSV file. 
+This function brings it all together saving all info needed for all pages of a city's events into a data frame and exports to a csv file.
+
+Concerning the structure: The function relies on two inputs. First, the link for the city website on Eventbrite, which is created with `create_url`. Secondly, the city name must be manually introduced as a string (e.g. "berlin"). Beware that this will also determine the column 'City' in the data frame and will define the name of the csv file.
+
+About the function: First an empty data frame object is created in which data will be stored. Then all event links of the city concerned are stored in a list using our `get_all_event_links()` function. Finally, the file path for the csv file is determined drawing on the city name string and the date, which is set to the system date +1 as we are scraping tomorrow's events. The file will be stored in your current working directory, so check if that suits your requirements. If you are working in a project, which we highly recommend, the file will automatically stored in there.
+
+To keep track how far we are along, we created a counter in percentage for which we determine the length of the list containing all links and the starting point 'j = 0'.
+
+Then, we start looping through the list containing all event links. For each iteration the counter adds +1 to keep track. The link itself is read once in the beginning to avoid reading it at every step in the scraping process, which would strain our computer and the provider. Each iteration is made with one second in between.
+
+The read html is then passed onto each individual scraping code, storing information in the previously created data frame. To avoid hick-ups and error messages stoping the looping process, we implemented tryCatch codes for every single step, imputing NA, if an error occurs. NAs are also inserted into the dataframe if the html does not hold valid information at the defined xPath. This is particularly important, as event websites on Eventbrite are closed once they are sold out. We consider this for our 'Ticket_Type' column, where we insert "Sold out" in case the xPath does not find anything. For our last columns, we draw on information stored in JSON format within the html. Again, we wrap every step within a tryCatch condition to prevent the scraper from stopping.
+
+Finally, the progress is computed and returned by dividing the sum of the links looped through by the sum of all available links.
+
+Data is then stored in a csv file, by first checking if that file exists and creating it if not and subsequently appending each new row stepwise.
 
 ```{r}
-
 get_event_info <- function(link, cityname) {
   
     shared_df <- data.frame()
@@ -327,28 +355,29 @@ for (i in seq_along(all_links)) {
 
 ## Testing ground
 
-Load the cities and create url for Madrid
+Now it is your turn, in trying out our scraper. First, load the cities and create url for Madrid.
 
 ```{r }
-l <- create_url("san sebastian")
+l <- create_url("madrid")
 ```
 
-How many pages for Madrid?
+How many pages for Madrid? 
+Insert the link you jus created and run the function. Recall, every page holds 20 events except for the last one.
+
+For Madrid, for 24th March, 2024, there are 8 pages, so roundabout 160 events. That will take some time..
 
 ```{r}
 count_pages(l)
 ```
-
-Get all the event info
+Now you can scrape all the event info - if you are patient.
 
 ```{r write-csv, eval=FALSE}
-get_event_info(l, "san sebastian") 
+get_event_info(l, "madrid") 
 ```
 
 ## Analysis
 
 We already gathered information on multiple cities on multiple days. You can find all separate in the folder data in our repository. Subsequently, we will show you a couple of possibilities to play with the data and get a sense of. Of course, results highly depend on which cities you decide to scrape, but that is the whole idea, isn't it?
-
 
 ### Reading in the data
 
@@ -376,7 +405,6 @@ for (file in csv_files) {
 # Combine all data frames into a single object
 combined_data <- bind_rows(all_data)
 ```
-
 
 ### Average number of daily events
 
@@ -450,7 +478,7 @@ term_freq_title <- term_freq_title |>
   mutate(term_frequency = n/total)
 ```
 
-To visualize our results we only choose the 10 most frequent words per city. 
+To visualize our results we only choose the 10 most frequent words per city.
 
 [Interpretation]
 
@@ -473,7 +501,7 @@ ggplot(top_terms_title, aes(term_frequency, word, fill = City)) +
        y = "")
 ```
 
-To determine the uniqueness of cities concerning their offered events, we calculate the TF-IDF. 
+To determine the uniqueness of cities concerning their offered events, we calculate the TF-IDF.
 
 [Interpretation]
 
@@ -562,7 +590,6 @@ description_tf_idf %>%
   labs(x = "tf-idf", y = NULL)
 ```
 
-
 ### What does it cost?
 
 Lastly, of course, it is also about the money. For that, we calculate the average price of an event per city in Euros. Because different countries, of course, use different currencies, we first standardize our prizes by writing a short price converter function and applying it to both prices we scraped. `LowPrice` refers to the lowest price an event can be accessed. Often, event organizers increase prices as time goes on and/or demand increases. `HighPrice` then captures the final, and highest price an event may be accessed.
@@ -640,9 +667,9 @@ ggplot(average_high_price, aes(x = City, y = average_price)) +
 
 ## Appendix
 
-We discovered some problems with the time an event starts, as event start and end times in other time zones are reported in our time zone when scraping the JSON information as we do. As such, we do not conduct an analysis on the start and end times of events in different cities. 
+We discovered some problems with the time an event starts, as event start and end times in other time zones are reported in our time zone when scraping the JSON information as we do. As such, we do not conduct an analysis on the start and end times of events in different cities.
 
-To circumvent this problem, we started working on a rather complex function based on regex', which scrapes the event time in the HTML and then tries to standadize it. The functions work, but maybe needs some fine tuning and could be made more legible, which is why we have not included it. 
+To circumvent this problem, we started working on a rather complex function based on regex', which scrapes the event time in the HTML and then tries to standadize it. The functions work, but maybe needs some fine tuning and could be made more legible, which is why we have not included it.
 
 The basic idea of the functions is the following:
 
