@@ -410,7 +410,7 @@ combined_data <- bind_rows(all_data)
 
 First, we are interested in how many events per day Eventbrite offers for each city. For that we calculate the average number of rows (events) per day and date. The results are plotted below.
 
-[Interpretation]
+Amsterdam and sydney have the, on average most events posted on Eventbrite. Note, that we had some issues while compiling data for London, which we fixed but are reflected in London's data, so expect the average number for London to be higher. In Spain, Madrid in Barcelona are in a neck-and-neck race, with Madrid having the edge by about 3.
 
 ```{r avg number events}
 combined_data$Date <- as.Date(combined_data$StartTime)
@@ -425,8 +425,10 @@ average_n_events <-
 ggplot(average_n_events, aes(x = City, y = average_daily_events)) +
   geom_bar(stat = "identity", fill = "skyblue", color = "black") +
   labs(title = "Average Daily Events per City",
-       x = "City",
-       y = "Average Daily Events") +
+       y ="",
+       x = "",
+       caption = "Data collected between 09.03.2024 and 14.03.2024")+
+  geom_text(aes(label = round(average_daily_events, 2)), vjust = -0.5, size = 2.2) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
@@ -475,22 +477,22 @@ term_freq_title <- left_join(term_freq_title, total_words_title)
 
 # calculating term frequency
 term_freq_title <- term_freq_title |> 
-  mutate(term_frequency = n/total)
+  mutate(term_frequency = as.numeric(n/total))
 ```
 
 To visualize our results we only choose the 10 most frequent words per city.
 
-[Interpretation]
+Generally, events concerning 'leadership' seem to be an often offered service on Eventbrite in a lot of cities. Other often mentioned words are 'free', most likely referring to free city tours. Interestingly, other city names, like Bilbao and San Sebastian or Leipzig in Berlin are mentioned often. Other widely popular activities mentioned are escape rooms, outdoor activities, and comedy shows. Interestingly, events seem to be rather similar across continents and cities reagarding the most frequently offered ones. Also, English is the predominant language seen here idnicating that the most frequent types of events are rather targeted to an international audience.
 
-```{r}
+```{r fig.height= 12, fig.width= 12}
 top_terms_title <- 
   term_freq_title |> 
   group_by(City) |> 
-  arrange(desc(term_frequency), desc(nchar(word))) |> # if multiple words with same tf, then choose longest one
+  arrange(desc(term_frequency)) |> 
   slice(1:10) |>   # Select the top 10 terms
   ungroup()
 
-ggplot(top_terms_title, aes(term_frequency, word, fill = City)) +
+ggplot(top_terms_title, aes(term_frequency, fct_reorder(word, term_frequency, .desc = FALSE), fill = City)) +
   # Create the bars
   geom_bar(position = "dodge", stat = "identity") +
   # Plot settings
@@ -498,14 +500,15 @@ ggplot(top_terms_title, aes(term_frequency, word, fill = City)) +
   facet_wrap(~City, scales = "free_y") +
   labs(title = "Term Frequency of Event Titles",
        x = "",
-       y = "")
+       y = "",
+       caption = "Data collected between 09.03.2024 and 14.03.2024")
 ```
 
-To determine the uniqueness of cities concerning their offered events, we calculate the TF-IDF.
+To determine the uniqueness of cities concerning their offered events, we calculate the TF-IDF. It relates the frequency of a word mentioned in one group (here city) with the frequency of that word mentioned in other groups.
 
-[Interpretation]
+Many unqiue terms refer to local places and their names. This is particularly apparent for Amsterdam. Since TF-IDF is language sensitive, national language words are more prominent in this plot (e.g. Valladolid "burgos"). It seems, Madrid is the city of pub crawls ;-). 
 
-```{r}
+```{r fig.height= 20, fig.width= 12}
 # calculating tf-idf
 title_tf_idf <- 
   term_freq_title |> 
@@ -519,12 +522,11 @@ title_tf_idf |>
   ungroup() |> 
   ggplot(aes(tf_idf, fct_reorder(word, tf_idf), fill = City)) +
   geom_col(show.legend = FALSE) +
-  facet_wrap(~City, ncol = 2, scales = "free") +
-  labs(x = "tf-idf", y = NULL)
-```
-
-```{r}
-
+  facet_wrap(~City, ncol = 3, scales = "free") +
+  labs(title = "TF-IDF for titles by city", 
+       x = "tf-idf",
+       y = NULL,
+       caption = "Data collected between 09.03.2024 and 14.03.2024")
 ```
 
 #### Description
@@ -554,40 +556,45 @@ term_freq_description <- term_freq_description |>
 top_terms_description <- 
   term_freq_description |> 
   group_by(City) |> 
-  arrange(desc(term_frequency), desc(nchar(word))) |> 
+  arrange(desc(term_frequency)) |> 
   slice(1:10) |>   # Select the top 5 terms
   ungroup()
 ```
 
-[Interpretation]
+Again, we find a lot of language targeting leadership courses (e.g.: managers, leaders, management, career). Also, 'thinking' seems to be the most prominent word when describing your event. What do you think?
 
-```{r, echo=FALSE}
+```{r, fig.width=12, fig.height=12, echo=FALSE}
 ggplot(top_terms_description, aes(term_frequency, word, fill = City)) +
   # Create the bars
   geom_bar(position = "dodge", stat = "identity") +
   # Plot settings
   theme(legend.position = "none") + 
-  facet_wrap(~City, scales = "free_y")
+  facet_wrap(~City, scales = "free_y") +
+  labs(title = "Term frequency for descriptions by city",
+       x = "Term frequency",
+       y = "",
+       caption = "Data collected between 09.03.2024 and 14.03.2024")
 ```
 
-[Interpretation]
+Again, words in the national language dominate. In Berlin, events tend to be in the evening ("abends"), while Glasgow is an Excel-city. In London, a lot of events seemed to be around Francis Ngannou and his fight against Anthony Joshua. Generally, the descriptions are richer and more divers offering more insights into what is going on in each city.
 
-```{r, echo=FALSE}
+```{r, fig.height= 18, fig.width= 14, echo=FALSE}
 # calculating tf-idf
 description_tf_idf <- 
   term_freq_description |> 
   bind_tf_idf(word, City, n) |> 
   select(-total)
 
-description_tf_idf %>%
-  group_by(City) %>%
-  #choose maximum number of words
-  slice_max(tf_idf, n = 5) %>%
-  ungroup() %>%
+description_tf_idf |> 
+  group_by(City) |> 
+  slice_max(tf_idf, n = 5) |> 
+  ungroup() |> 
   ggplot(aes(tf_idf, fct_reorder(word, tf_idf), fill = City)) +
   geom_col(show.legend = FALSE) +
-  facet_wrap(~City, ncol = 2, scales = "free") +
-  labs(x = "tf-idf", y = NULL)
+  facet_wrap(~City, ncol = 3, scales = "free") +
+  labs(x = "tf-idf",
+       y = NULL,
+       caption = "Data collected between 09.03.2024 and 14.03.2024")
 ```
 
 ### What does it cost?
@@ -623,12 +630,12 @@ combined_data$High_Price_Euros <- mapply(convert_to_euros, combined_data$HighPri
 
 Having created this standardized price per event in Euros, we calculate and plot the average low and high price per city.
 
-Concerning the former, [Interpretation]
+Concerning the former, Glasgow has the highest average price. Thinking back to what kind of events are offered, this does not seem very surprising, as it seemed as if Glasgow had a lot of educational events about technical skills, which usually tend to be longer and more expensive. Sydney and London follow. This may also be expected since prices are generally higher in Sydney and London also tends to be more expensive, on average.
 
 ```{r}
 average_low_price <- 
   combined_data |> 
-  drop_na(LowPrice) |> 
+  drop_na(Low_Price_Euros) |> 
   group_by(City)  |> 
   summarise(average_price = mean(Low_Price_Euros))
 
@@ -644,12 +651,12 @@ ggplot(average_low_price, aes(x = City, y = average_price)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-[Interpretation]
+The graph below replicates the results for low prices, but, expectedly so, with higher average prices. In Spain, Madrid ranges around the lowest price category.
 
 ```{r}
 average_high_price <- 
   combined_data |> 
-  drop_na(HighPrice) |> 
+  drop_na(High_Price_Euros) |> 
   group_by(City)  |> 
   summarise(average_price = mean(High_Price_Euros))
 
