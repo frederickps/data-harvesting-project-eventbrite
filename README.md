@@ -4,6 +4,8 @@
 ![Static Badge](https://img.shields.io/badge/R_code-%23276DC3?logo=R&labelColor=white&logoColor=%23276DC3)
 ![Static Badge](https://img.shields.io/badge/HTML-grey?logo=htmx&logoColor=gray&labelColor=white)
 ![Static Badge](https://img.shields.io/badge/JSON-grey?logo=htmx&logoColor=gray&labelColor=white)
+![Static Badge](https://img.shields.io/badge/tidyverse-R_package-%23276DC3?logo=Tidyverse&logoColor=black&labelColor=white&color=%23276DC3)
+
 
 ## At a glance
 
