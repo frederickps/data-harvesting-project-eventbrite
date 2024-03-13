@@ -49,7 +49,7 @@ We created a function `load_cities_list()` so that you can get the correct forma
 
 The list currently includes 15 countries from four continents (Europe, N.America, S.America, Australia). Of course, you may add more cities at your pleasure following our example.
 
-### Required packages
+### Required packages 📖
 
 ```
 library(tidyverse)
@@ -67,6 +67,7 @@ library(forcats)
 #### Create the url from the list above
 `create_url(cityname)` 
 Returns the url for tomorrow's events in the format needed for the functions below. 
+Use this character string for all the `url` inputs below. 
 
 #### How many pages of events for *cityname* ? 
 `count_pages(url)`
@@ -84,6 +85,7 @@ Returns a list of strings the urls for all pages.
 `get_event_info(url, cityname)`
 This function returns all the event data for all the events on all pages for a specific city and date. 
 It creates a dataframe and exports it as a .CSV file with the name `cityname_DATE.csv`. 
+The *cityname* input can be anything that you would like to be saved in the .CSV file. It does not have to be the same format as the *cityname* input from `create_url()`.
 
 Currently, the dataframe includes the following info: 
 * event duration
