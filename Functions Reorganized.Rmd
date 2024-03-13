@@ -438,7 +438,7 @@ average_n_events <-
 
 ggplot(average_n_events, aes(x = City, y = average_daily_events)) +
   geom_bar(stat = "identity", fill = "skyblue", color = "black") +
-  labs(title = "Average Daily Events per City",
+  labs(title = "Average Number of Daily Events per City",
        y ="",
        x = "",
        caption = "Data collected between 09.03.2024 and 14.03.2024")+
@@ -498,7 +498,7 @@ To visualize our results we only choose the 10 most frequent words per city.
 
 Generally, events concerning 'leadership' seem to be an often offered service on Eventbrite in a lot of cities. Other often mentioned words are 'free', most likely referring to free city tours. Interestingly, other city names, like Bilbao and San Sebastian or Leipzig in Berlin are mentioned often. Other widely popular activities mentioned are escape rooms, outdoor activities, and comedy shows. Interestingly, events seem to be rather similar across continents and cities reagarding the most frequently offered ones. Also, English is the predominant language seen here idnicating that the most frequent types of events are rather targeted to an international audience.
 
-```{r fig.height= 12, fig.width= 12}
+```{r fig.height= 20, fig.width= 12}
 top_terms_title <- 
   term_freq_title |> 
   group_by(City) |> 
@@ -511,7 +511,7 @@ ggplot(top_terms_title, aes(term_frequency, fct_reorder(word, term_frequency, .d
   geom_bar(position = "dodge", stat = "identity") +
   # Plot settings
   theme(legend.position = "none") + 
-  facet_wrap(~City, scales = "free_y") +
+  facet_wrap(~City, scales = "free_y", ncol = 3) +
   labs(title = "Term Frequency of Event Titles",
        x = "",
        y = "",
@@ -537,8 +537,8 @@ title_tf_idf |>
   ggplot(aes(tf_idf, fct_reorder(word, tf_idf), fill = City)) +
   geom_col(show.legend = FALSE) +
   facet_wrap(~City, ncol = 3, scales = "free") +
-  labs(title = "TF-IDF for titles by city", 
-       x = "tf-idf",
+  labs(title = "TF-IDF for Titles by City", 
+       x = "TF-IDF",
        y = NULL,
        caption = "Data collected between 09.03.2024 and 14.03.2024")
 ```
@@ -547,7 +547,8 @@ title_tf_idf |>
 
 We now do the same for the event description to verify our results.
 
-```{r, echo=FALSE}
+```{r results = 'hide', echo=FALSE, message=FALSE}
+
 # unnesting tokens to prepare for analysis
 term_freq_description <-
   combined_data |> 
@@ -577,14 +578,14 @@ top_terms_description <-
 
 Again, we find a lot of language targeting leadership courses (e.g.: managers, leaders, management, career). Also, 'thinking' seems to be the most prominent word when describing your event. What do you think?
 
-```{r, fig.width=12, fig.height=12, echo=FALSE}
+```{r, fig.width=14, fig.height=18, echo=FALSE}
 ggplot(top_terms_description, aes(term_frequency, word, fill = City)) +
   # Create the bars
   geom_bar(position = "dodge", stat = "identity") +
   # Plot settings
   theme(legend.position = "none") + 
-  facet_wrap(~City, scales = "free_y") +
-  labs(title = "Term frequency for descriptions by city",
+  facet_wrap(~City, scales = "free_y", ncol = 3) +
+  labs(title = "Term Frequency for Event Descriptions by City",
        x = "Term frequency",
        y = "",
        caption = "Data collected between 09.03.2024 and 14.03.2024")
@@ -606,7 +607,8 @@ description_tf_idf |>
   ggplot(aes(tf_idf, fct_reorder(word, tf_idf), fill = City)) +
   geom_col(show.legend = FALSE) +
   facet_wrap(~City, ncol = 3, scales = "free") +
-  labs(x = "tf-idf",
+  labs(title = "TF-IDF for Event Descriptions by City",
+       x = "TF-IDF",
        y = NULL,
        caption = "Data collected between 09.03.2024 and 14.03.2024")
 ```
@@ -657,7 +659,7 @@ ggplot(average_low_price, aes(x = City, y = average_price)) +
   geom_bar(stat = "identity", fill = "skyblue", color = "black") +
   geom_text(aes(label = paste0(round(average_price, 2), "€")), 
             vjust = -0.5, size = 2) +  
-  labs(title = "Average Low Price per Event per City",
+  labs(title = "Average Low Price per Event by City",
        x = "City",
        y = "") +
   scale_y_continuous(labels = function(x) paste0(x, "€")) +  
@@ -678,7 +680,7 @@ ggplot(average_high_price, aes(x = City, y = average_price)) +
   geom_bar(stat = "identity", fill = "skyblue", color = "black") +
   geom_text(aes(label = paste0(round(average_price, 2), "€")), 
             vjust = -0.5, size = 2) +  
-  labs(title = "Average High Price per Event per City",
+  labs(title = "Average High Price per Event by City",
        x = "City",
        y = "") +
   scale_y_continuous(labels = function(x) paste0(x, "€")) +  
