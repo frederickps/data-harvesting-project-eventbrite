@@ -410,6 +410,14 @@ for (file in csv_files) {
 
 # Combine all data frames into a single object
 combined_data <- bind_rows(all_data)
+
+# Fixed some spelling mistakes in variable City
+combined_data <- combined_data |> 
+  mutate(City = case_when(
+    City == "buenos_aires" ~ "buenos aires",
+    City == "sevila" ~ "sevilla",
+    .default = City
+  ))
 ```
 
 ### Average number of daily events
