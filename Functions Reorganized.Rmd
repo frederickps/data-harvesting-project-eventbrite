@@ -1,5 +1,6 @@
 ---
 title: "Building a robust scraper for Eventbrite"
+subtitle: "Final Project for Data Harvesting (Instructor: Jorge Cimentada)"
 author: "Eric Hausken & Frederick Pena Sims"
 date: "`r Sys.Date()`"
 output: html_document
