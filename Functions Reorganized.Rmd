@@ -1,6 +1,6 @@
 ---
 title: "Building a robust scraper for Eventbrite"
-author: "Eric Hausken &Frederick Pena Sims"
+author: "Eric Hausken & Frederick Pena Sims"
 date: "`r Sys.Date()`"
 output: html_document
 ---
@@ -426,7 +426,7 @@ First, we are interested in how many events per day Eventbrite offers for each c
 
 Amsterdam and sydney have the, on average most events posted on Eventbrite. Note, that we had some issues while compiling data for London, which we fixed but are reflected in London's data, so expect the average number for London to be higher. In Spain, Madrid in Barcelona are in a neck-and-neck race, with Madrid having the edge by about 3.
 
-```{r avg number events}
+```{r avg number events, fig.width=12}
 combined_data$Date <- as.Date(combined_data$StartTime)
 
 average_n_events <- 
@@ -510,12 +510,13 @@ ggplot(top_terms_title, aes(term_frequency, fct_reorder(word, term_frequency, .d
   # Create the bars
   geom_bar(position = "dodge", stat = "identity") +
   # Plot settings
+  theme_minimal() +
   theme(legend.position = "none") + 
   facet_wrap(~City, scales = "free_y", ncol = 3) +
   labs(title = "Term Frequency of Event Titles",
        x = "",
        y = "",
-       caption = "Data collected between 09.03.2024 and 14.03.2024")
+       caption = "Data collected between 09.03.2024 and 14.03.2024") 
 ```
 
 To determine the uniqueness of cities concerning their offered events, we calculate the TF-IDF. It relates the frequency of a word mentioned in one group (here city) with the frequency of that word mentioned in other groups.
@@ -532,9 +533,10 @@ title_tf_idf <-
 # Plotting the 5 words with highest TF-IDF per city
 title_tf_idf |> 
   group_by(City) |> 
-  slice_max(tf_idf, n = 5) |> 
+  slice_max(tf_idf, n = 5, with_ties = F) |> 
   ungroup() |> 
   ggplot(aes(tf_idf, fct_reorder(word, tf_idf), fill = City)) +
+  theme_minimal() +
   geom_col(show.legend = FALSE) +
   facet_wrap(~City, ncol = 3, scales = "free") +
   labs(title = "TF-IDF for Titles by City", 
@@ -564,7 +566,7 @@ total_words_description <- term_freq_description |>
   summarize(total = sum(n))
 term_freq_description <- left_join(term_freq_description, total_words_description)
 
-# estim
+# calculating term frequency 
 term_freq_description <- term_freq_description |> 
   mutate(term_frequency = n/total)
 
@@ -583,6 +585,7 @@ ggplot(top_terms_description, aes(term_frequency, word, fill = City)) +
   # Create the bars
   geom_bar(position = "dodge", stat = "identity") +
   # Plot settings
+  theme_minimal() +
   theme(legend.position = "none") + 
   facet_wrap(~City, scales = "free_y", ncol = 3) +
   labs(title = "Term Frequency for Event Descriptions by City",
@@ -605,6 +608,7 @@ description_tf_idf |>
   slice_max(tf_idf, n = 5) |> 
   ungroup() |> 
   ggplot(aes(tf_idf, fct_reorder(word, tf_idf), fill = City)) +
+  theme_minimal() +
   geom_col(show.legend = FALSE) +
   facet_wrap(~City, ncol = 3, scales = "free") +
   labs(title = "TF-IDF for Event Descriptions by City",
@@ -648,7 +652,7 @@ Having created this standardized price per event in Euros, we calculate and plot
 
 Concerning the former, Glasgow has the highest average price. Thinking back to what kind of events are offered, this does not seem very surprising, as it seemed as if Glasgow had a lot of educational events about technical skills, which usually tend to be longer and more expensive. Sydney and London follow. This may also be expected since prices are generally higher in Sydney and London also tends to be more expensive, on average.
 
-```{r}
+```{r low-price, fig.width=12}
 average_low_price <- 
   combined_data |> 
   drop_na(Low_Price_Euros) |> 
@@ -669,7 +673,7 @@ ggplot(average_low_price, aes(x = City, y = average_price)) +
 
 The graph below replicates the results for low prices, but, expectedly so, with higher average prices. In Spain, Madrid ranges around the lowest price category.
 
-```{r}
+```{r highprice, fig.width=12}
 average_high_price <- 
   combined_data |> 
   drop_na(High_Price_Euros) |> 
