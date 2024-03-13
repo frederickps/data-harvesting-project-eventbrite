@@ -98,6 +98,7 @@ create_url <- function(city) {
   url_suffix <- "/events--tomorrow/" # you can change this to `/events_today/`
   # url_suffix <- "/events--today/" 
   
+  # combines the parts of the url to create full url 
   url <- paste0(url_root, url_city, url_suffix)
   
   return(url)
@@ -120,7 +121,7 @@ count_pages <- function(link){
     xml_find_all("//li[@class='eds-pagination__navigation-minimal eds-l-mar-hor-3']") |> 
     xml_text() |> 
     str_extract_all("\\d+$") |> 
-    pluck(1)
+    pluck(1) # extracts first item 
   
   total_pages <- as.numeric(total_pages)
   return(total_pages) # returns the number of available pages as an integer
@@ -146,7 +147,7 @@ get_event_links <- function(link, page_num) {
   # remove the repeating links that are automatically scraped
   links <- unique(html_link)
   
-  return(links)
+  return(links) # returns character vector of links
 }
 ```
 
@@ -202,20 +203,24 @@ Data is then stored in a csv file, by first checking if that file exists and cre
 ```{r}
 get_event_info <- function(link, cityname) {
   
-    shared_df <- data.frame()
+  # data frame for the city with all events 
+  shared_df <- data.frame()
   
+  # stores all the links we will scrape as character vector
   all_links <- get_all_event_links(link)
   
-  file_path <- paste0(cityname, format(Sys.Date()+1, "%Y%m%d"),".csv")
+  # name of the CSV file that will be exported from shared_df
+  file_path <- paste0(cityname, format(Sys.Date()+1, "%Y%m%d"), ".csv")
   
-  num_all_links <- length(all_links) 
-  j <- 0
+  num_all_links <- length(all_links) # number of links/events
+  j <- 0 # variable for counting links being scraped 
   
-    # Loop over each link in 'test_object'
+    # Loop over each link in 'all_links'
 for (i in seq_along(all_links)) {
+  
   Sys.sleep(1)
   
-  j <- j + 1
+  j <- j + 1 # adds one each loop for counting progress
   
   event_link <- all_links[i]
   
@@ -254,7 +259,7 @@ for (i in seq_along(all_links)) {
     }, error = function(e) {
       shared_df[i, "Ticket_Type"] <- NA})
   
-  # Extract refund policy
+  # Extract refund policy. If no info, store as NA
   
   tryCatch({
     shared_df[i, "Refund_Policy"] <- if (html |>
@@ -270,7 +275,7 @@ for (i in seq_along(all_links)) {
     }, error = function(e) {
       shared_df[i, "Refund_Policy"] <- NA
       })
-# Extract description
+# Extract description. If no info, save as NA
   tryCatch({
     shared_df[i, "Description"] <- if (html |>
                                        xml_find_all("//div[@class = 'eds-text--left']//p") |>
@@ -330,11 +335,12 @@ for (i in seq_along(all_links)) {
            error = function(e) {
              shared_df[i, "url"] <- NA})
   
-  shared_df[i, "City"] <- cityname
+  shared_df[i, "City"] <- cityname # city variable for when we complile data 
   
   # calculating and reporting the progress of the scraper
   print(paste(round(100 * j/num_all_links, 2), "% completed"))
   
+  # read the CSV file with all the previously saved events and save as `res`
   res <- try(read_csv(file_path, show_col_types = FALSE), silent = TRUE)
   
   if (inherits(res, "try-error")) {
@@ -347,7 +353,7 @@ for (i in seq_along(all_links)) {
       combined_df <- bind_rows(res, shared_df[i,])
       write_csv(combined_df, file_path)
     }
-  rm(res)
+  rm(res) # removed `res` to save memory space 
 }
   }
 
