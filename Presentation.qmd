@@ -1,0 +1,401 @@
+---
+title: "Presentation"
+author: "Eric & Frederick"
+format: 
+  revealjs:
+    theme: simple
+    transition: slide
+    transition-speed: fast
+    embed-resources: TRUE
+editor: visual
+logo: https://www.rstudio.com/wp-content/uploads/2018/10/RStudio-Logo-Flat.png
+---
+
+## Objectives of our project
+
+```{r}
+#|echo: false
+
+library(tidyverse)
+library(rvest)
+library(xml2)
+library(jsonlite)
+library(httr)
+
+# Analysis
+library(tm)
+library(tidytext)
+library(forcats)
+```
+
+-   add objectives
+
+# Functions
+
+## Getting the url right
+
+![](images/clipboard-1765564271.png)
+
+-   "<https://www.eventbrite.es/d/>"
+
+-   "spain--madrid"
+
+-   "/events-tomorrow/"
+
+-   "?page=1"
+
+## load_cities_list {style="font-size: 80%;"}
+
+-   preparing a city name input for the correct format in the link on eventbrite.es
+
+```{r}
+#| echo: true
+
+load_cities_list <- function() {
+  
+  cities_list <- tribble(~input, ~text,
+                         "madrid", "spain--madrid",
+                         "roma", "italy--roma",
+                         "london", "united-kingdom--london",
+                         "paris", "france--paris",
+                         "barcelona", "spain--barcelona",
+                         "san francisco", "ca--san-francisco",
+                         "berlin", "germany--berlin",
+                         "amsterdam", "netherlands--amsterdam",
+                         "warsaw", "poland--warszawa",
+                         "lyon", "france--lyon", 
+                         "marseille", "france--marseille", 
+                         "sevilla", "spain--sevilla", 
+                         "vigo", "spain--vigo", 
+                         "malaga", "spain--malaga", 
+                         "zaragoza", "spain--zaragoza", 
+                         "marbella", "spain-marbella", 
+                         "bilbao", "spain--bilbao", 
+                         "san sebastian", "spain--donostia-san-sebastián", 
+                         "cadiz", "spain--cádiz", 
+                         "granada", "spain--granada", 
+                         "valladolid", "spain--valladolid",
+                         "santiago", "chile--santiago",
+                         "buenos aires", "argentina--buenos-aires",
+                         "sydney", "australia--sydney",
+                         "lima", "peru--lima",
+                         "glasgow", "united-kingdom--glasgow",
+                         "dublin", "ireland--dublin",
+                         "lisbon", "portugal--lisboa"
+                         
+  )
+  
+  return(cities_list)
+}
+```
+
+## create_url
+
+-   using `load_cities_list` to create a correctly formatted link
+
+```{r}
+#| echo: true
+
+create_url <- function(city) {
+  
+  cities_list <- load_cities_list()  # loading city list into function
+  
+  url_city <- cities_list$text[cities_list$input == city] # returns the city name in Eventbrite's url format 
+  
+  url_root <- "https://www.eventbrite.es/d/"
+  url_suffix <- "/events--tomorrow/" # you can change this to `/events_today/`
+  # url_suffix <- "/events--today/" 
+  
+  # combines the parts of the url to create full url 
+  url <- paste0(url_root, url_city, url_suffix)
+  
+  return(url)
+}
+```
+
+## count_pages
+
+-   extracting the number of pages
+
+```{r}
+#| echo: true
+
+count_pages <- function(link){
+  
+  total_pages <- link |> 
+    read_html() |> 
+    xml_find_all("//li[@class='eds-pagination__navigation-minimal eds-l-mar-hor-3']") |> 
+    xml_text() |> 
+    str_extract_all("\\d+$") |> 
+    pluck(1) # extracts first item 
+  
+  total_pages <- as.numeric(total_pages)
+  return(total_pages) # returns the number of available pages as an integer
+}
+```
+
+## Where?
+
+![](images/clipboard-2423281174.png)
+
+## Where to get the data from?
+
+::: columns
+::: {.column width="30%"}
+![](images/clipboard-3877888909.png)
+:::
+
+::: {.column width="70%"}
+![](images/clipboard-824950995.png)
+:::
+:::
+
+## get_event_links
+
+-   collecting all individual event links for a given website
+
+```{r}
+#| echo: true
+
+get_event_links <- function(link, page_num) {
+  
+  link_with_page_num <- paste0(link, "?page=", page_num) # adds page number info to url 
+  
+  html_link <- link_with_page_num |> 
+    read_html() |>
+    xml_find_all("//section[@class='event-card-details']//div[@class='Stack_root__1ksk7']//a") |> 
+    xml_attr("href")
+  
+  # remove the repeating links that are automatically scraped
+  links <- unique(html_link)
+  
+  return(links) # returns character vector of links
+}
+```
+
+## get_all_event_links {style="font-size: 90%;"}
+
+-   combining `count_pages` and `get_event_links` to loop through all pages to get every single event link
+
+```{r}
+#| echo: true
+
+get_all_event_links <- function(link) {
+  
+  all_event_links <- c() # creates empty vector
+  
+  pages_count <- count_pages(link = link) # gets number of available pages at this link 
+  # pages_count <- min(10, pages_count) # don't pull more than 10 pages at once
+  
+  for (i in 1:pages_count) {
+    
+    Sys.sleep(2)
+    # loops through number of pages 
+    # gets a new batch of event links from page i 
+    links <- get_event_links(link = link, page_num = i)
+    
+    # adds it to the full vector of titles 
+    all_event_links <- c(all_event_links, links) 
+  }
+  
+  # returns only event links that are not NA and that are unique
+  return(unique(all_event_links[!is.na(all_event_links)]))
+  
+}
+```
+
+## and finally... get_event_info {style="font-size: 70%;"}
+
+-   scraper looping over the list of all event links gathered from `get_all_event_links`
+
+-   "cityname" as manual input defining the "City" column and file name
+
+```{r}
+#| echo: true
+
+get_event_info <- function(link, cityname) {
+  
+  # data frame for the city with all events 
+  shared_df <- data.frame()
+  
+  # stores all the links we will scrape as character vector
+  all_links <- get_all_event_links(link)
+  
+  # name of the CSV file that will be exported from shared_df
+  file_path <- paste0(cityname, format(Sys.Date()+1, "%Y%m%d"), ".csv")
+  
+  num_all_links <- length(all_links) # number of links/events
+  j <- 0 # variable for counting links being scraped 
+  
+    # Loop over each link in 'all_links'
+for (i in seq_along(all_links)) {
+  
+  Sys.sleep(1)
+  
+  j <- j + 1 # adds one each loop for counting progress
+  
+  event_link <- all_links[i]
+  
+  html <- event_link |> read_html()
+  
+
+
+# Read HTML and extract duration if there is information, if not NA
+  
+  tryCatch({shared_df[i, "Duration"] <- if (html |>
+                                            xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |>
+                                            length() == 0) {
+    NA
+    } else {
+      html |>
+        xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |>
+        xml_text() %>%
+        .[[1]]
+      }
+  }, error = function(e) {
+    shared_df[i, "Duration"] <- NA
+    })
+  
+  # Extract ticket type
+  tryCatch({
+    shared_df[i, "Ticket_Type"] <- if (html |>
+                                       xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |>
+                                       length() == 0) {
+      "Sold out"
+      } else {
+        html |>
+          xml_find_all("//li[@class = 'eds-text-bm eds-text-weight--heavy css-1eys03p']/text()") |>
+          xml_text() %>%
+          .[[2]]
+        }
+    }, error = function(e) {
+      shared_df[i, "Ticket_Type"] <- NA})
+  
+  # Extract refund policy. If no info, store as NA
+  
+  tryCatch({
+    shared_df[i, "Refund_Policy"] <- if (html |>
+                                         xml_find_all("//div[@class = 'Layout-module__module___2eUcs Layout-module__refundPolicy___fQ8I7']//section[@class = 'event-details__section']/div") |>
+                                         length() == 0) {
+      NA
+      } else {
+        html |>
+          xml_find_all("//div[@class = 'Layout-module__module___2eUcs Layout-module__refundPolicy___fQ8I7']//section[@class = 'event-details__section']/div") |>
+          xml_text() %>%
+          .[[2]]
+        }
+    }, error = function(e) {
+      shared_df[i, "Refund_Policy"] <- NA
+      })
+# Extract description. If no info, save as NA
+  tryCatch({
+    shared_df[i, "Description"] <- if (html |>
+                                       xml_find_all("//div[@class = 'eds-text--left']//p") |>
+                                       length() == 0){
+      NA
+      } else {
+        html |>
+          xml_find_all("//div[@class = 'eds-text--left']//p") |>
+          xml_text() |>
+          discard(~.x == "") |>
+          paste(collapse = " ")
+      }
+    }, error = function(e) {
+      shared_df[i, "Description"] <- NA
+      })
+  
+  # pull json data
+  
+  json <-
+    html |>
+    xml_find_all("//script[@type='application/ld+json']") |>
+    pluck(1) |>
+    xml_text()
+  
+  tryCatch({json <- fromJSON(json)},
+         error = function(e) {
+           json <- NA})
+  
+  tryCatch({shared_df[i, "LowPrice"] <- json$offers$lowPrice[1]},
+           error = function(e) {
+             shared_df[i, "LowPrice"] <- NA})
+  tryCatch({shared_df[i, "HighPrice"] <- json$offers$highPrice[1]},
+           error = function(e) {
+             shared_df[i, "HighPrice"] <- NA})
+  tryCatch({shared_df[i, "Currency"] <- json$offers$priceCurrency[1]},
+           error = function(e) {
+             shared_df[i, "Currency"] <- NA})
+  tryCatch({shared_df[i, "Organizer"] <- json$organizer$name},
+           error = function(e) {
+             shared_df[i, "Organizer"] <- NA})
+  tryCatch({shared_df[i, "EventStatus"] <- json$eventStatus},
+           error = function(e) {
+             shared_df[i, "EventStatus"] <- NA})
+  tryCatch({shared_df[i, "StartTime"] <- lubridate::as_datetime(json$startDate)},
+           error = function(e) {
+             shared_df[i, "StartTime"] <- NA})
+  tryCatch({shared_df[i, "EndTime"] <- lubridate::as_datetime(json$endDate)},
+           error = function(e) {
+             shared_df[i, "EndTime"] <- NA})
+  tryCatch({shared_df[i, "Title"] <- json$name},
+           error = function(e) {
+             shared_df[i, "Title"] <- NA})
+  tryCatch({shared_df[i, "Subtitle"] <- json$description},
+           error = function(e) {
+             shared_df[i, "Subtitle"] <- NA})
+  tryCatch({shared_df[i, "url"] <- json$url},
+           error = function(e) {
+             shared_df[i, "url"] <- NA})
+  
+  shared_df[i, "City"] <- cityname # city variable for when we complile data 
+  
+  # calculating and reporting the progress of the scraper
+  print(paste(round(100 * j/num_all_links, 2), "% completed"))
+  
+  # read the CSV file with all the previously saved events and save as `res`
+  res <- try(read_csv(file_path, show_col_types = FALSE), silent = TRUE)
+  
+  if (inherits(res, "try-error")) {
+    # Save the data frame we scraped above
+    print("File doesn't exist; Creating it")
+    write_csv(shared_df, file_path)
+    } else {
+      # If the file was read successfully, append the
+      # new rows and save the file again
+      combined_df <- bind_rows(res, shared_df[i,])
+      write_csv(combined_df, file_path)
+    }
+  rm(res) # removed `res` to save memory space 
+}
+  }
+```
+
+## Let's try it out
+
+-   we only need two functions to scrape all events from a given city: `create_url` and `get_event_info`
+
+::: columns
+::: {.column width="50%"}
+Create a link for a city you are interested in:
+
+```{r}
+#| echo: true
+
+l <- create_url("madrid")
+
+l
+
+count_pages(l)
+```
+:::
+
+::: {.column width="50%"}
+Use that link to get ALL events:
+
+```{r, eval=FALSE}
+#| echo: true
+
+get_event_info(l, "madrid") 
+```
+:::
+:::
