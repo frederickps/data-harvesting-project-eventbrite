@@ -1,6 +1,8 @@
 ---
 title: "Presentation"
+subtitle: "Harvesting data from Eventbrite from around the world"
 author: "Eric & Frederick"
+date: 2024-03-22
 format: 
   revealjs:
     theme: simple
@@ -28,7 +30,9 @@ library(tidytext)
 library(forcats)
 ```
 
--   add objectives
+-   gather information of events from cities around the world
+-   build a robust scraper to gather information on any given data
+-   facilitate usage of data by providing a ready-made csv-file
 
 # Functions
 
@@ -142,10 +146,14 @@ count_pages <- function(link){
 
 ::: columns
 ::: {.column width="30%"}
+First idea...
+
 ![](images/clipboard-3877888909.png)
 :::
 
 ::: {.column width="70%"}
+... better idea
+
 ![](images/clipboard-824950995.png)
 :::
 :::
@@ -399,3 +407,249 @@ get_event_info(l, "madrid")
 ```
 :::
 :::
+
+# Analysis
+
+## Average number of daily events
+
+```{r}
+#| echo: false
+
+# Setting the directory path where csv files are located
+folder_path <- "data"
+
+# Getting a list of csv files in the folder
+csv_files <- list.files(folder_path, pattern = "\\.csv$", full.names = TRUE)
+
+# Initializing an empty list to store data frames
+all_data <- list()
+
+# Looping through each csv file and read it into a data frame
+for (file in csv_files) {
+
+  data <- read.csv(file)
+  
+  # Append the data frame to the list
+  all_data[[length(all_data) + 1]] <- data
+}
+
+# Combine all data frames into a single object
+combined_data <- bind_rows(all_data)
+
+# Fixed some spelling mistakes in variable City
+combined_data <- combined_data |> 
+  mutate(City = case_when(
+    City == "buenos_aires" ~ "buenos aires",
+    City == "sevila" ~ "sevilla",
+    .default = City
+  ))
+
+```
+
+```{r}
+#| echo: false
+
+combined_data$Date <- as.Date(combined_data$StartTime)
+
+average_n_events <- 
+  combined_data |> 
+  group_by(City, Date)  |> 
+  summarise(daily_events = n())  |> 
+  group_by(City)  |> 
+  summarise(average_daily_events = mean(daily_events))
+
+ggplot(average_n_events, aes(x = City, y = average_daily_events)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+  labs(title = "Average Number of Daily Events per City",
+       y ="",
+       x = "",
+       caption = "Data collected between 09.03.2024 and 14.03.2024")+
+  geom_text(aes(label = round(average_daily_events, 2)), vjust = -0.5, size = 2.2) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## How expensive are events on average (1)?
+
+```{r}
+#| echo: false
+
+# Exchange rates (12.03.2024)
+exchange_rates <- data.frame(
+  Currency = c("USD", "GBP", "EUR", "ARS", "SGD", "CAD", "CHF", "AUD", "NZD", "PLN"),  # Currency codes
+  Exchange_Rate = c(0.91, 1.17, 0, 0.0011, 0.69, 0.68, 1.04, 0.60, 0.56, 0.23)  # Corresponding exchange rates to Euros
+)
+
+# Merging exchange rate data with combined_data based on the Currency column
+combined_data <- merge(combined_data, exchange_rates, by = "Currency", all.x = TRUE)
+
+convert_to_euros <- function(price, currency, exchange_rate) {
+  if (is.na(currency)) {
+    return(NA)  # Return NA if the currency is missing
+  } else if (currency == "EUR") {
+    return(price)  # If the currency is already EUR, return the price as it is
+  } else {
+    return(price * exchange_rate)  # Convert price to Euros using the exchange rate
+  }
+}
+
+# Adding the converted prices to the main dataframe
+combined_data$Low_Price_Euros <- mapply(convert_to_euros, combined_data$LowPrice, combined_data$Currency, 
+                                    combined_data$Exchange_Rate)
+combined_data$High_Price_Euros <- mapply(convert_to_euros, combined_data$HighPrice, combined_data$Currency, 
+                                    combined_data$Exchange_Rate)
+```
+
+```{r}
+#| echo: false
+
+average_low_price <- 
+  combined_data |> 
+  drop_na(Low_Price_Euros) |> 
+  group_by(City)  |> 
+  summarise(average_price = mean(Low_Price_Euros))
+
+ggplot(average_low_price, aes(x = City, y = average_price)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+  geom_text(aes(label = paste0(round(average_price, 2), "€")), 
+            vjust = -0.5, size = 2) +  
+  labs(title = "Average Low Price per Event by City",
+       x = "City",
+       y = "") +
+  scale_y_continuous(labels = function(x) paste0(x, "€")) +  
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## How expensive are events on average (2)?
+
+```{r}
+#| echo: false
+
+average_high_price <- 
+  combined_data |> 
+  drop_na(High_Price_Euros) |> 
+  group_by(City)  |> 
+  summarise(average_price = mean(High_Price_Euros))
+
+ggplot(average_high_price, aes(x = City, y = average_price)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+  geom_text(aes(label = paste0(round(average_price, 2), "€")), 
+            vjust = -0.5, size = 2) +  
+  labs(title = "Average High Price per Event by City",
+       x = "City",
+       y = "") +
+  scale_y_continuous(labels = function(x) paste0(x, "€")) +  
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+# Appendix - Standardizing time
+
+## Challenge
+
+-   time extracted from JSON uses local system time
+
+-   time extracted does not observe one single format (military and US time)
+
+![](images/clipboard-349616894.png)
+
+-   many different formats used by hosts
+
+## Pre-process data {style="font-size: 70%;"}
+
+-   Extracting time from individual webpage and standardizing format
+
+-   Output: dd:dd - dd:dd(am\|pm\|AM\|PM)
+
+```{r}
+#| echo: true
+
+filter_list <- 
+  function(list) {
+  return(list[sapply(list, function(x) is.character(x) && nchar(x) > 0)])}
+
+pre_convert_time <- function (html) {if (
+    html |> 
+    xml_find_all("//div[@class = 'date-info']//span") |>
+    length() == 0) {
+      NA
+  } 
+  else {
+    html |> 
+      xml_find_all("//div[@class = 'date-info']//span") |> 
+      xml_text() %>%
+      filter_list() %>%
+  str_extract_all("\\b(?:\\d+:\\d+(?:pm|PM|am|AM)?|(?:\\d+:)?\\d+pm|\\d+PM|\\d+am|\\d+AM|\\d+ - \\d+:\\d+(?:pm|PM|am|AM)?|\\d+ - \\d+(?:pm|PM|am|AM)?)") %>%
+  .[[1]] %>%
+  paste0(collapse = " - ")  %>% 
+  {if (str_detect(., "\\b\\d{1}(?![0-9]|:)(?:pm|PM|am|AM)")) { # Matches single-digit numbers not followed by another digit or colon, followed by "pm" or "am"
+    gsub("\\b(\\d{1})(pm|PM|am|AM)", "0\\1:00\\2", .)
+  } else if (str_detect(., "\\b(\\d{1}):?")) { # Matches singular numbers followed by a colon
+    gsub("\\b(\\d{1}):", "0\\1:", .)
+  } else if (str_detect(., "\\d{1} - \\d{1}(?:pm|PM|am|AM)?")){
+    gsub("(\\d{1,2}) - (\\d{1,2})(pm|PM|am|AM)", "0\\1:00 - 0\\2:00\\3", .)
+  } else if (str_detect(., "\\d{1,2}(?:pm|PM|am|AM)?")){
+    if_else(str_detect(., "pm|PM"), gsub("(\\d{1,2})(pm|PM|am|AM)?", "0\\1:00 - 00:00pm", .), 
+            gsub("(\\d{1,2})(pm|PM|am|AM)?", "0\\1:00 - 00:00", .))
+  } else if (str_detect(., "\\d{1}")) {
+    gsub("(\\d{1})", "0\\1:00", .)
+  } else {
+    paste(.)
+  }
+  } %>%
+  gsub("\\b(\\d)( - |$)", "0\\1:00\\2", .)%>%
+  gsub("^\\b(\\d{2}:\\d{2})(pm|am|PM|AM)$", "\\1 - 00:00\\2", .) %>%
+  gsub("^(\\d{2}:\\d{2})$", "\\1 - 00:00\\2", .)%>%
+  gsub("(?<=\\s\\d{2})(pm|am|PM|AM)\\b", ":00\\1", ., perl = TRUE)%>%
+  gsub("(\\d{1,2})(am|pm|AM|PM)\\s", "\\1:00\\2 ", ., perl = TRUE) %>%
+  gsub("\\b(\\d):(\\d{2}(am|pm|AM|PM)?)\\b", "0\\1:\\2", .) %>%
+  gsub("(?<!\\d:)(\\b\\d{2})\\b\\s", "\\1:00 ", ., perl = TRUE) %>%
+  gsub("(pm|am) - ", " - ", .)%>%
+  gsub("(am|AM)$", "pm", .)
+  }
+  
+}
+```
+
+## Converting time {style="font-size: 90%;"}
+
+-   converting starting time into military time if provided in US-time
+
+```{r}
+#| echo: true
+
+convert_time_format <- function(time_string) {
+  # Check if "pm" or "PM" is present in the input string
+  if (is.na(time_string)) {
+    return(NA)
+  } else {
+    if(str_detect(time_string, "pm|PM")) {
+    # Extract hours and minutes from the input string
+    time_parts <- str_match(time_string, "(\\d+):(\\d+) - (\\d+):(\\d+)(pm)?")
+    start_hour <- as.integer(time_parts[2])
+    start_minute <- as.integer(time_parts[3])
+    end_hour <- as.integer(time_parts[4])
+    end_minute <- as.integer(time_parts[5])
+    
+    # Convert to 24-hour format
+    if (start_hour != 12) {
+      start_hour <- start_hour + 12
+    }
+    
+    # Return the start time string in the desired format
+    result <- sprintf("%02d:%02d", start_hour, start_minute)
+    } else {
+      start_time <- str_match(time_string, "(\\d+):(\\d+) - (\\d+):(\\d+)")
+      start_hour <- as.integer(start_time[2])
+      start_minute <- as.integer(start_time[3])
+      
+      time_string <- sprintf("%02d:%02d", start_hour, start_minute)
+      # Return the original time string if "pm" or "PM" is not present
+      result <- time_string
+    }
+    
+    return(result)
+  }
+}
+```
